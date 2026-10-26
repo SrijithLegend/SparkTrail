@@ -169,7 +169,19 @@ input[type=range]{width:180px;accent-color:var(--amber)}
 
 <script>
 const $=s=>document.querySelector(s);
-let INDEX=null, DOM=null, SCN=null, defended=false, VAR=null;
+// TVA component renders, keyed by node id (shared ids reuse one image — "generate
+// once, reuse everywhere"). Served as published files next to this page.
+const NODE_IMG={
+  ATTACKER:'models/shared/attacker.jpg', PLC:'models/shared/plc.jpg',
+  MONITOR:'models/shared/monitor.jpg', FUSION:'models/shared/fusion.jpg',
+  TRANSFORMER:'models/shared/transformer.jpg',
+  CSMS:'models/ev_hub/csms.jpg', CP_1:'models/ev_hub/cp1.jpg',
+  BMS:'models/ev_hub/bms.jpg', PACK:'models/ev_hub/pack.jpg',
+  SCADA:'models/power_sub/scada.jpg', RTU:'models/power_sub/rtu.jpg',
+  BREAKER:'models/power_sub/breaker.jpg', TAP_CHANGER:'models/power_sub/tap_changer.jpg',
+  FEEDER:'models/power_sub/feeder.jpg', LOADS:'models/power_sub/loads.jpg',
+};
+let INDEX=null, DOM=null, SCN=null, defended=false, VAR=null, texLoader=null;
 let scene3d,cam,renderer,raycaster,nodeMeshes={},tubes=[],pulses=[],caseNo=0;
 let playing=false,tIdx=0; const SPEEDS=[0.5,1,2,4]; let spdI=1;
 
@@ -217,6 +229,8 @@ function initGL(){
   cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,300);
   renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  texLoader=new THREE.TextureLoader();
   document.body.insertBefore(renderer.domElement,document.body.firstChild);
   scene3d.add(new THREE.HemisphereLight(0xffd79a,0x2a1d10,0.85));
   const key=new THREE.PointLight(0xffd98a,1.6,160); key.position.set(6,18,14); scene3d.add(key);
@@ -271,17 +285,24 @@ function buildScene(){
   const S=0.9;
   DOM.nodes.forEach(n=>{
     const g=new THREE.Group();
-    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:0.3,roughness:0.55,metalness:0.3});
-    const mesh=new THREE.Mesh(nodeGeo(n.kind),mat); g.add(mesh);
-    const lbl=sprite(n.label); lbl.position.y=1.5; g.add(lbl);
+    let tintMat, labelY=1.5, img=NODE_IMG[n.id];
+    if(img){
+      // high-res TVA render as a camera-facing billboard (preserves quality);
+      // a slightly larger backing sprite is the depth-coloured frame/glow.
+      const back=new THREE.Sprite(new THREE.SpriteMaterial({color:0x5c4226,depthWrite:false}));
+      back.scale.set(4.0,2.35,1); back.renderOrder=1; g.add(back);
+      const tex=texLoader.load(img); tex.encoding=THREE.sRGBEncoding;
+      const bill=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthWrite:false}));
+      bill.scale.set(3.75,2.1,1); bill.renderOrder=2; g.add(bill);
+      tintMat=back.material; labelY=1.55;
+    } else {
+      const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:0.3,roughness:0.55,metalness:0.3});
+      g.add(new THREE.Mesh(nodeGeo(n.kind),mat)); tintMat=mat;
+    }
+    const lbl=sprite(n.label); lbl.position.y=labelY; lbl.renderOrder=3; g.add(lbl);
     g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S); scene3d.add(g);
-    g.traverse(o=>{if(o.isMesh)o.userData.node=n.id;});
-    nodeMeshes[n.id]={group:g,mesh,mat,pos:g.position.clone(),kind:n.kind};
-    // optional glTF model (§5): drops in over the primitive, which stays as fallback
-    const mp=DOM.models&&DOM.models[n.id];
-    if(mp&&THREE.GLTFLoader){ new THREE.GLTFLoader().load(mp,gl=>{
-      const o=gl.scene; o.traverse(x=>{if(x.isMesh)x.userData.node=n.id;}); g.add(o); mesh.visible=false;
-    },undefined,()=>{}); }
+    g.traverse(o=>{if(o.isMesh||o.isSprite)o.userData.node=n.id;});
+    nodeMeshes[n.id]={group:g,mat:tintMat,pos:g.position.clone(),kind:n.kind,img:!!img};
   });
   DOM.links.forEach(([a,b])=>{ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
     const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,0.04,8,false);
@@ -295,7 +316,8 @@ function colorByDepth(){
   const dep=VAR.depths;
   for(const id in nodeMeshes){ const n=nodeMeshes[id];
     const c=new THREE.Color(id in dep?DCOL(dep[id]):0x4a3620);
-    n.mat.color.copy(c); n.mat.emissive.copy(c); n.mat.emissiveIntensity=(id in dep)?0.6:0.2; }
+    n.mat.color.copy(c);                      // billboard frame OR primitive body
+    if(!n.img && n.mat.emissive){ n.mat.emissive.copy(c); n.mat.emissiveIntensity=(id in dep)?0.6:0.2; } }
 }
 function trailTo(nid){ const to=nodeMeshes[nid]&&nodeMeshes[nid].pos; if(!to)return;
   let best=null,bd=1e9; tubes.forEach(r=>{const d=r.b.distanceTo(to);if(d<bd){bd=d;best=r;}}); if(best&&bd<1.6)best.glow=1; }

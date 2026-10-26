@@ -1,8 +1,24 @@
-# 3D model attribution & drop-in (SPARKTRAIL_MULTIDOMAIN §5)
+# 3D component art & model drop-in (SPARKTRAIL_MULTIDOMAIN §5)
 
-The multi-domain viewer renders every node from **primitives** (TVA analog
-boxes / cylinders / octahedra) so the scene always renders with **no downloads**.
-Real glTF models are an optional, licence-clean upgrade — drop-in, no code change.
+The multi-domain viewer (`viz3d/multidomain.html`) renders each node as a
+**high-res TVA component billboard** when one exists for its node id, and falls
+back to a **primitive** (analog box / cylinder / octahedron) otherwise — so the
+scene always renders.
+
+## Bundled component renders (TVA-styled, used as billboards)
+AI-generated (Gemini) in the TVA aesthetic, downscaled to 1200px JPEG and keyed
+by node id — "generate once, reuse everywhere" (shared ids share one render):
+
+- `shared/` — attacker, plc, monitor, fusion, transformer  (reused across domains)
+- `ev_hub/` — csms, cp1, bms, pack
+- `power_sub/` — scada, rtu, breaker, tap_changer, feeder, loads
+
+Node ids without a render (water tank, robot axis, chiller, pump, …) use primitives.
+To add one: drop a JPG/PNG at `viz3d/models/<group>/<name>.jpg` and add the node
+id → path to `NODE_IMG` in `multidomain.html`.
+
+## Optional glTF models (drop-in, no code change)
+Real glTF models are a further upgrade — licence-clean, drop-in:
 
 ## How to add a model (two steps)
 1. Put a single-file `.glb` (textures embedded, ≤ ~2–3 MB, `draco`-compressed if
