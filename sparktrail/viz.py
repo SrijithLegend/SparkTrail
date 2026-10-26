@@ -19,6 +19,7 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
     chargers: dict[str, dict] = {}
     hub_load = 0.0
     markers = []
+    seen_def = set()   # dedupe the per-step proxy rejects to one marker per node
     for e in events:
         if e["layer"] == "attack":
             markers.append({"t": e["t"], "type": "attack", "node": e["node"],
@@ -26,6 +27,15 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
         elif e["layer"] == "monitor" and e["kind"] == "alert":
             markers.append({"t": e["t"], "type": "alert", "node": e["node"],
                             "field": e["field"], "label": "sensor divergence"})
+        elif e["layer"] == "monitor" and e["kind"] == "fusion_alert":
+            markers.append({"t": e["t"], "type": "defence", "node": e["node"],
+                            "field": e["field"], "label": "fusion caught spoof"})
+        elif e["layer"] == "control" and e["kind"] == "reject":
+            key = (e["node"], e["field"])
+            if key not in seen_def:
+                seen_def.add(key)
+                markers.append({"t": e["t"], "type": "defence", "node": e["node"],
+                                "field": e["field"], "label": "proxy blocked"})
 
     # build per-step snapshots by scanning events in time order
     by_t: dict[float, list] = {}
@@ -81,6 +91,7 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
         "chargers": charger_names,
         "timeline": timeline,
         "markers": markers,
+        "node_depths": result.get("node_depths", {}),
         "score": result["score"],
     }
 
@@ -123,6 +134,11 @@ def _charger_combos():
         out.append((ct, spec.kind, "cooling_suppression", "Cooling suppression (temp read low)",
                     {**base, "run_s": 5400, "name": f"{spec.kind} — cooling suppression",
                      "attacks": [spoof]}))
+        out.append((ct, spec.kind, "overcurrent_tempspoof_defended",
+                    "Overcurrent + spoof — DEFENDED (proxy + fusion)",
+                    {**base, "run_s": 2400, "proxy": True,
+                     "name": f"{spec.kind} — defended (proxy blocks, fusion catches)",
+                     "attacks": [oc, spoof]}))
         if spec.bidirectional:
             out.append((ct, spec.kind, "forced_export", "Vehicle-link forced into export",
                         {**base, "run_s": 1800, "name": f"{spec.kind} — forced export",
@@ -145,6 +161,9 @@ def _grid_combos():
         tk = f"grid_{gt}"
         out.append((tk, gspec.kind, "mass_maxpower", "Mass max-power command → overload",
                     {**base(12), "run_s": 600, "name": f"{gspec.kind} — mass max-power", "attacks": [mass]}))
+        out.append((tk, gspec.kind, "mass_defended", "Mass max-power — DEFENDED (proxy clamps)",
+                    {**base(12), "run_s": 600, "proxy": True,
+                     "name": f"{gspec.kind} — mass max-power, defended", "attacks": [mass]}))
         out.append((tk, gspec.kind, "loadshed_suppression", "Load-shed dropped → overload pinned",
                     {**base(12), "run_s": 600, "name": f"{gspec.kind} — load-shed suppression",
                      "attacks": [mass, dict(id="A-SHED", entry_point="cyber.hub_controller",

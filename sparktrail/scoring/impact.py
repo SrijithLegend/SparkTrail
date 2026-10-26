@@ -34,6 +34,12 @@ def score(events: list[Event], baselines: dict | None = None,
     detect_t = alerts[0].t if alerts else None
     detection_delay = (detect_t - time_to_impact) if (detect_t and time_to_impact) else None
 
+    # Phase 1/2/3 defence signals
+    rejects = [e for e in events if e.layer == "control" and e.kind == "reject"]
+    fusion_hits = [e for e in events if e.layer == "monitor" and e.kind == "fusion_alert"]
+    fusion_t = fusion_hits[0].t if fusion_hits else None
+    max_depth = max((e.propagation_depth for e in events), default=0)
+
     # crude composite (0..100-ish); documented as illustrative weighting
     peak_term = max(0.0, peak_temp - thr) * 1.5
     load_term = max(0.0, peak_load - 100.0) * 0.5
@@ -58,4 +64,8 @@ def score(events: list[Event], baselines: dict | None = None,
         "physical_nodes_affected": sorted(nodes),
         "detection_delay_s": detection_delay,
         "monitor_alert_t_s": detect_t,
+        "proxy_blocked": bool(rejects),
+        "proxy_rejects": len(rejects),
+        "fusion_alert_t_s": fusion_t,
+        "max_propagation_depth": max_depth,
     }

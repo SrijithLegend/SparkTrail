@@ -43,11 +43,13 @@ GRID_SPECS: dict[str, GridSpec] = {
 class Microgrid:
     def __init__(self, name: str, store: EventStore, injector: Injector, spec: GridSpec,
                  feeder: Feeder, controller: HubController, chargers: list,
-                 pv_kW: float = 0.0, S_base_kVA: float = 500.0, inertia_H: float = 4.0) -> None:
+                 pv_kW: float = 0.0, S_base_kVA: float = 500.0, inertia_H: float = 4.0,
+                 proxy=None) -> None:
         self.name = name
         self.store = store
         self.inj = injector
         self.spec = spec
+        self.proxy = proxy          # Phase 1: zero-trust physics proxy (optional)
         self.feeder = feeder
         self.controller = controller
         self.chargers = chargers
@@ -68,6 +70,9 @@ class Microgrid:
         # load-shed signal crosses the hub controller link (may be dropped/delayed)
         want = self.controller.decide(self.load_pct)
         signal = self.inj.transform_command("hub.load_shed", want, t, node=self.name)
+        if self.proxy is not None:
+            signal = self.proxy.guard_load_shed(self.store, t, self.name, want, signal,
+                                                self.inj.cause_for("hub.load_shed"))
         self._mult = signal if signal is not None else 1.0
         for c in self.chargers:
             c.hub_multiplier = self._mult

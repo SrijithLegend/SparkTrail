@@ -16,7 +16,9 @@ from ..attacks.injector import Injector
 from ..attacks.schema import Attack
 from ..control.bms import BMS
 from ..control.hub_controller import HubController
+from ..control.proxy import PhysicsProxy
 from ..monitor.physics_aware import PhysicsAwareMonitor
+from ..monitor.sensor_fusion import SensorFusionValidator
 from ..physics.battery_thermal import BatteryThermal
 from ..physics.feeder import Feeder
 from ..scoring import impact
@@ -50,9 +52,19 @@ def run(cfg: dict) -> dict:
                    normal_A=limits.get("normal_A", spec.normal_A),
                    max_A=limits.get("max_A", spec.max_A))
 
+    # Phase 1: optional zero-trust physics proxy (defends over-limit commands)
+    pcfg = cfg.get("proxy")
+    proxy = None
+    if pcfg:
+        pc = pcfg if isinstance(pcfg, dict) else {}
+        proxy = PhysicsProxy(
+            thermal_limit_A=pc.get("thermal_limit_A", round(spec.normal_A * 1.2, 1)),
+            grid_max_kW=pc.get("grid_max_kW", 500.0),
+            v_min_pu=pc.get("v_min_pu", 0.94))
+
     hcfg = cfg.get("hub", {})
     n = hcfg.get("chargers", 1)
-    chargers = [Charger(f"charger_{i+1:02d}", store, inj, spec, ambient) for i in range(n)]
+    chargers = [Charger(f"charger_{i+1:02d}", store, inj, spec, ambient, proxy=proxy) for i in range(n)]
 
     gtype = hcfg.get("grid_type", "single_feeder")
     if gtype not in GRID_SPECS:
@@ -63,7 +75,7 @@ def run(cfg: dict) -> dict:
                       Z_pu=hcfg.get("impedance_pu", 0.05)),
         controller=HubController(), chargers=chargers,
         pv_kW=hcfg.get("pv_kW", 0.0), S_base_kVA=hcfg.get("transformer_kVA", 500.0),
-        inertia_H=hcfg.get("inertia_H", 4.0))
+        inertia_H=hcfg.get("inertia_H", 4.0), proxy=proxy)
 
     mon = None
     mcfg = cfg.get("monitor", {}).get("physics_aware")
@@ -74,6 +86,13 @@ def run(cfg: dict) -> dict:
             model=BatteryThermal(C=mm.get("C", 430_000.0), R=mm.get("R", 0.11),
                                  T_ambient=ambient, T=ambient))
 
+    # Phase 2: cross-layer sensor fusion validator (on by default; alerts only)
+    fusion = None
+    if cfg.get("fusion", True):
+        fusion = SensorFusionValidator(store, node=chargers[0].name, R=spec.R, C_th=spec.C,
+                                       h=spec.cool_high, T_amb=ambient,
+                                       min_load_A=max(50.0, spec.normal_A * 0.5))
+
     dt = cfg.get("dt_s", 1.0)
     run_s = cfg.get("run_s", 2400)
 
@@ -81,9 +100,12 @@ def run(cfg: dict) -> dict:
         for c in chargers:
             c.step(dt, t)
         grid.step(dt, t)
+        c0 = chargers[0]
         if mon:
-            c0 = chargers[0]
             mon.step(dt, t, c0.current_A, c0.reported_T, c0.cooling_on)
+        if fusion:
+            fusion.step(dt, t, c0.current_A, spec.voltage_V, c0.reported_T,
+                        cause=inj.cause_for("sensor.pack_temp_C"))
 
     clock.run(int(run_s / dt), dt, on_step)
 
@@ -95,6 +117,7 @@ def run(cfg: dict) -> dict:
         "ambient_C": ambient,
         "run_s": run_s,
         "events": store.to_json(),
+        "node_depths": store.node_depths(),
         "score": impact.score(events),
     }
 

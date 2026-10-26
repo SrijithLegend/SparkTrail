@@ -106,6 +106,8 @@ h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;font-weight:700;
 .stamp.cleared{color:var(--olive);border-color:var(--olive)}
 .stamp.stressed{color:var(--orange);border-color:var(--orange)}
 .stamp.damaged{color:var(--danger);border-color:var(--danger)}
+.stamp.blocked{color:var(--teal);border-color:var(--teal)}
+.stamp.caught{color:var(--olive);border-color:var(--olive)}
 .dial{display:flex;align-items:center;gap:10px}
 .dial svg{width:110px;height:64px;flex:none}
 .dial .lbl{font:600 11px var(--mono);letter-spacing:.1em;color:var(--brown);text-transform:uppercase}
@@ -117,6 +119,7 @@ h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;font-weight:700;
   background:repeating-linear-gradient(#0000 0 2px,#00000055 2px 3px)}
 .ln{display:flex;gap:6px}.ln .t{color:#9a7a44;min-width:42px}
 .ln.attack .m{color:#ffd79a}.ln.alert .m{color:#ff8a6a}.ln.alert .t{color:#ff8a6a}
+.ln.defence .m{color:#9dffb0}.ln.defence .t{color:#9dffb0}
 .variant{position:absolute;right:16px;top:120px;color:var(--danger);border:5px double var(--danger);
   border-radius:8px;font:700 26px var(--disp);letter-spacing:.1em;padding:8px 16px;transform:rotate(-10deg);
   opacity:0;z-index:30;pointer-events:none;text-shadow:0 0 2px rgba(0,0,0,.3)}
@@ -556,6 +559,7 @@ function renderReport(fr){
   if(sc.peak_coolant_temp_C!=null) nx+=nixie('Coolant peak',sc.peak_coolant_temp_C,'°C',sc.peak_coolant_temp_C>=50);
   if(fr.freq!=null) nx+=nixie('Frequency',fr.freq,'Hz',(fr.freq<49.5||fr.freq>50.5));
   if(fr.volt!=null) nx+=nixie('Bus voltage',fr.volt,'%',(fr.volt<94||fr.volt>106));
+  nx+=nixie('Prop depth', sc.max_propagation_depth!=null?sc.max_propagation_depth:'—');
   $('#nixies').innerHTML=nx;
 
   // impact dial
@@ -569,6 +573,10 @@ function renderReport(fr){
     (cur.attack&&cur.attack.includes('loadshed'))?'<span class="stamp stressed">STRESSED</span>':'<span class="stamp cleared">CLEARED</span>'}</div>`;
   comps+=`<div class="comp"><span class="nm">GRID transformer</span><span class="meta">${load}%</span>${stampFor('load',load)}</div>`;
   comps+=`<div class="comp"><span class="nm">${gridScene?cur.chargers.length+'× chargers':'Charger C1'}</span><span class="meta">${peakT}°C</span>${stampFor('temp',peakT)}</div>`;
+  if(sc.proxy_blocked)
+    comps+=`<div class="comp"><span class="nm">Zero-Trust proxy</span><span class="meta">${sc.proxy_rejects} refused</span><span class="stamp blocked">BLOCKED</span></div>`;
+  if(sc.fusion_alert_t_s!=null)
+    comps+=`<div class="comp"><span class="nm">Sensor fusion</span><span class="meta">+${sc.fusion_alert_t_s|0}s</span><span class="stamp caught">CAUGHT</span></div>`;
   $('#components').innerHTML=comps;
 
   // CRT trace log
@@ -640,7 +648,9 @@ function animate(){
   if(cur){
     if(playing){ acc+=dt*SPEEDS[spdI];
       if(acc>0.06){ acc=0; tIdx=Math.min(tIdx+1,cur.timeline.length-1); $('#range').value=tIdx; updateClock();
-        if(tIdx>=cur.timeline.length-1){ setPlay(false); $('#variantstamp').classList.add('show'); }
+        if(tIdx>=cur.timeline.length-1){ setPlay(false);
+          $('#variantstamp').textContent=cur.score.proxy_blocked?'THREAT CONTAINED':'VARIANT LOGGED';
+          $('#variantstamp').classList.add('show'); }
         fireMarkers(cur.timeline[tIdx].t); applyFrame(); }
     }
     for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.8;

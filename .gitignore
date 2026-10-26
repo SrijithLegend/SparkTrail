@@ -3,3 +3,4 @@ __pycache__/
 trace*.json
 nul
 .DS_Store
+sparktrail.zip

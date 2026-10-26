@@ -109,6 +109,30 @@ def test_all_charger_and_grid_types_build():
         assert scenario.run(cfg)["events"], f"{gt} produced no events"
 
 
+# ---- Phase 1/2/3 (ported from the alternate build) ------------------------
+def test_proxy_blocks_overcurrent_and_keeps_pack_cooler():
+    cfg = scenario.load("scenarios/dcfast_overcurrent_tempspoof.yaml")
+    hot = scenario.run(cfg)["score"]["peak_pack_temp_C"]
+    cfg_def = scenario.load("scenarios/dcfast_overcurrent_defended.yaml")
+    r = scenario.run(cfg_def)["score"]
+    assert r["proxy_blocked"] and r["proxy_rejects"] > 0, "proxy should refuse the over-limit command"
+    assert r["peak_pack_temp_C"] < hot - 5, f"defended pack should run cooler: {r['peak_pack_temp_C']} vs {hot}"
+
+
+def test_fusion_catches_spoof_but_not_honest_load():
+    spoof = scenario.run_file("scenarios/dcfast_overcurrent_tempspoof.yaml")["score"]
+    assert spoof["fusion_alert_t_s"] is not None, "fusion must catch a held-low temp sensor"
+    # honest high current (no spoof) must NOT trip the fusion check
+    honest = scenario.run_file("scenarios/hub_mass_command.yaml")["score"]
+    assert honest["fusion_alert_t_s"] is None, "fusion must not false-positive on honest load"
+
+
+def test_propagation_depth_tracks_cascade():
+    r = scenario.run_file("scenarios/dcfast_overcurrent_tempspoof.yaml")
+    assert r["score"]["max_propagation_depth"] >= 1, "attack->physics is at least one hop"
+    assert r["node_depths"], "node depths should be populated for the heatmap"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

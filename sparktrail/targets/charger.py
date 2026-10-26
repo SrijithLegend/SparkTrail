@@ -48,12 +48,14 @@ CHARGER_SPECS: dict[str, ChargerSpec] = {
 
 class Charger:
     def __init__(self, name: str, store: EventStore, injector: Injector,
-                 spec: ChargerSpec, ambient_C: float, bms: BMS | None = None) -> None:
+                 spec: ChargerSpec, ambient_C: float, bms: BMS | None = None,
+                 proxy=None) -> None:
         self.name = name
         self.store = store
         self.inj = injector
         self.spec = spec
         self.bms = bms or BMS()
+        self.proxy = proxy          # Phase 1: zero-trust physics proxy (optional)
         self.plant = BatteryThermal(C=spec.C, R=spec.R, cool_low=spec.cool_low,
                                     cool_high=spec.cool_high, T_ambient=ambient_C, T=ambient_C)
         self.amb = ambient_C
@@ -96,6 +98,9 @@ class Charger:
 
         # backend link: commanded current limit (may be overridden/replayed/mass-commanded)
         cmd = self.inj.transform_command("charging_profile.limit_A", self.base_limit_A, t, node=self.name)
+        if self.proxy is not None and cmd is not None:
+            cmd = self.proxy.guard_current(self.store, t, self.name, cmd,
+                                           self.inj.cause_for("charging_profile.limit_A"))
         if cmd is not None:
             self._limit_A = cmd
         # vehicle link: EV's requested current (may be spoofed high)
