@@ -1,227 +1,337 @@
-<title>SparkTrail Tracer</title>
+<title>SparkTrail · TVA Field Terminal</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Retro CRT reskin (ref: Blender beige Compaq render) — amber phosphor on a warm-dark tube,
-   scanlines + vignette + screen curvature, framed by a beige monitor bezel. Same 3D sim underneath. */
+/* ===== SparkTrail — Time Variance Authority field terminal =====================
+   Warm, bureaucratic, amber-lit. 70% paper, 20% walnut, 10% amber. The sim
+   engine underneath is unchanged; this is case work: requisition a tampering
+   action, execute the temporal event, read the damage report. ============== */
 :root{
-  --bg0:#0a0803; --bg1:#141009; --glass:rgba(24,19,9,.80); --edge:#4a3a1c; --edge2:#6b5225;
-  --fg:#ffcf7a; --muted:#b08a4a;                /* amber phosphor */
-  --accent:#ffb000; --accent2:#ff7a1a;          /* signal / attack (amber/orange) */
-  --heat-cool:#4a90d9; --heat-mid:#f59e0b; --heat-hot:#ff3b30;
-  --good:#7dff8a; --warn:#ffb000; --crit:#ff3b30;
-  --bezel:#cdbf9a; --bezel2:#a89669;            /* beige plastic case */
-  --font:'VT323',ui-monospace,monospace; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --paper:#D6BF96; --paper-2:#C4A878; --walnut:#2B1E12; --brown:#3A2A1A; --brown-2:#5C4226;
+  --amber:#F0A836; --amber-hi:#FFCE6E; --orange:#D67828;
+  --olive:#787842; --teal:#467874; --cream:#F0E4CA;
+  --danger:#B03428; --ok:#787842;
+  --disp:"Bahnschrift","Oswald","Arial Narrow",sans-serif;
+  --mono:"IBM Plex Mono","Consolas",monospace;
 }
-:root[data-theme="light"]{ color-scheme:dark }
+:root[data-theme="light"]{color-scheme:dark}
+*{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:
-    radial-gradient(1200px 820px at 50% 40%, #1c1608 0%, #0a0803 70%),
-    var(--bg0);
-  color:var(--fg);font-family:var(--mono);overflow:hidden;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:var(--mono);color:var(--brown);overflow:hidden;
+  background:var(--paper);-webkit-tap-highlight-color:transparent}
 canvas{display:block;position:fixed;inset:0}
+h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin:0}
+.caps{text-transform:uppercase;letter-spacing:.08em}
 
-/* --- CRT overlays (purely decorative, never intercept input) --- */
-#crt{position:fixed;inset:0;z-index:50;pointer-events:none}
-#crt::before{content:"";position:absolute;inset:0;                 /* scanlines */
-  background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);
-  mix-blend-mode:multiply;opacity:.55}
-#crt::after{content:"";position:absolute;inset:0;                  /* curvature + vignette + phosphor tint */
-  background:radial-gradient(130% 120% at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%),
-             radial-gradient(100% 100% at 50% 50%,rgba(255,176,0,.05),transparent 60%);
-  box-shadow:inset 0 0 160px rgba(0,0,0,.7)}
-#flick{position:fixed;inset:0;z-index:51;pointer-events:none;background:rgba(255,176,0,.015);
-  animation:flick .12s steps(2) infinite}
-@keyframes flick{0%{opacity:.9}50%{opacity:1}100%{opacity:.92}}
-/* beige monitor bezel framing the whole tube */
-#bezel{position:fixed;inset:0;z-index:49;pointer-events:none;border-radius:26px;
-  box-shadow:inset 0 0 0 12px var(--bezel),inset 0 0 0 16px var(--bezel2),
-             inset 0 0 44px 16px rgba(0,0,0,.6)}
-@media(prefers-reduced-motion:reduce){#flick{display:none}}
+/* faint grid + grain + vignette over the paper void */
+#paperfx{position:fixed;inset:0;z-index:48;pointer-events:none;
+  background:
+    linear-gradient(var(--brown) .5px,transparent .5px) 0 0/64px 64px,
+    linear-gradient(90deg,var(--brown) .5px,transparent .5px) 0 0/64px 64px;
+  opacity:.05;mix-blend-mode:multiply}
+#vignette{position:fixed;inset:0;z-index:48;pointer-events:none;
+  box-shadow:inset 0 0 220px rgba(43,30,18,.55)}
 
-.hud{position:fixed;z-index:5;text-shadow:0 0 6px rgba(255,176,0,.35)}
-.glass{background:var(--glass);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
-  border:1px solid var(--edge);border-radius:4px}
+.hud{position:fixed;z-index:5}
 
-/* top bar */
-#top{top:env(safe-area-inset-top,0);left:0;right:0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
-  padding:12px max(16px,env(safe-area-inset-right,0)) 12px max(16px,env(safe-area-inset-left,0))}
-.brand{display:flex;flex-direction:column;gap:1px}
-.brand h1{font-family:var(--font);font-size:22px;margin:0;letter-spacing:.10em;text-transform:uppercase;font-weight:400;line-height:1}
-.brand h1 b{color:var(--accent)}
-.badges{display:flex;gap:6px;flex-wrap:wrap}
-.badge{font-size:13px;letter-spacing:.04em;padding:2px 8px;border-radius:3px;border:1px solid var(--edge2);
-  color:var(--muted);background:#16110880}
-.badge b{color:var(--fg);font-weight:400}
-.picker{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.pk-lbl{font-family:var(--font);font-size:16px;letter-spacing:.1em;color:var(--accent);
-  text-shadow:0 0 8px rgba(255,176,0,.5)}
-select{background:#160f06;color:var(--fg);border:2px solid var(--accent);border-radius:3px;
-  box-shadow:0 0 10px rgba(255,176,0,.35);padding:6px 10px;font-family:var(--font);font-size:16px;max-width:42vw}
+/* ---- global chrome ---- */
+#topbar{top:0;left:0;right:0;height:56px;background:var(--walnut);color:var(--cream);
+  border-bottom:3px solid var(--amber);display:flex;align-items:center;gap:16px;
+  padding:0 16px;font-family:var(--mono);z-index:20}
+#topbar .wm{font-family:var(--disp);font-size:20px;letter-spacing:.14em;color:var(--amber-hi)}
+#topbar .sp{flex:1}
+#topbar .cf{font-size:13px;letter-spacing:.08em;color:var(--cream)}
+#topbar .clk{font-size:15px;color:var(--amber-hi);min-width:74px;text-align:right}
+#lamps{top:56px;left:0;right:0;height:26px;background:#20160c;display:flex;align-items:center;gap:14px;
+  padding:0 18px;z-index:19;border-bottom:1px solid #4a3318}
+.lamp{display:flex;align-items:center;gap:6px;font:11px var(--mono);color:#8a714a;letter-spacing:.1em}
+.lamp i{width:10px;height:10px;border-radius:50%;background:#3a2a16;border:1px solid #000}
+.lamp.on{color:var(--amber-hi)}
+.lamp.on i{background:var(--amber-hi);box-shadow:0 0 12px var(--amber-hi)}
+.lamp.alert.on i{background:var(--danger);box-shadow:0 0 12px var(--danger)}
+.lamp.alert.on{color:#e88}
+#lampsweep{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,206,110,.35),transparent);
+  transform:translateX(-100%);opacity:0;pointer-events:none}
+#lampsweep.go{animation:sweep .9s ease}
+@keyframes sweep{0%{transform:translateX(-100%);opacity:1}100%{transform:translateX(100%);opacity:0}}
 
-/* right trace rail */
-#rail{top:62px;right:max(12px,env(safe-area-inset-right,0));width:306px;max-width:calc(100vw - 24px);
-  padding:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100% - 168px);overflow:auto}
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tile{background:#14100780;border:1px solid var(--edge);border-radius:3px;padding:9px 10px;position:relative;overflow:hidden}
-.tile .k{font-size:11px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase}
-.tile .v{font-size:19px;font-family:var(--mono);margin-top:3px;font-variant-numeric:tabular-nums}
-.tile .v small{font-size:11px;color:var(--muted)}
-.tile.hot{border-color:#7a2a1a}.tile.warn{border-color:#7a5a1a}
-.gauge{height:4px;border-radius:2px;background:#2a2010;margin-top:7px;overflow:hidden}
-.gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
-.sec-h{font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-top:2px}
-.trace{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:11px}
-.row{display:flex;gap:8px;align-items:baseline;padding:5px 8px;border-radius:2px;background:#14100780;
-  border-left:3px solid var(--edge2)}
-.row.attack{border-left-color:var(--accent)}
-.row.alert{border-left-color:var(--warn)}
-.row.physics{border-left-color:var(--heat-hot)}
-.row .t{color:var(--muted);min-width:40px}
-.row .m{flex:1;min-width:0;word-break:break-word}
-.flag{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.04em;text-transform:uppercase}
-.flag.modelled{background:#17330f;color:var(--good)}
-.flag.illustrative{background:#3a2a10;color:var(--warn)}
-.legend{display:flex;flex-wrap:wrap;gap:8px 10px;font-size:10px;color:var(--muted)}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
+#bottombar{bottom:0;left:0;right:0;height:30px;background:var(--walnut);color:var(--cream);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+  font:12px var(--mono);letter-spacing:.06em;border-top:2px solid var(--brown-2);z-index:20}
 
-/* selected-node chip */
-#sel{left:max(16px,env(safe-area-inset-left,0));bottom:96px;padding:10px 12px;font-size:12px;max-width:260px}
-#sel .n{font-weight:600;letter-spacing:.02em}
-#sel .s{font-family:var(--mono);color:var(--muted);margin-top:4px;font-size:11px;line-height:1.5}
+/* ---- panels ---- */
+.tva-panel{background:var(--paper-2);border:3px solid var(--brown-2);border-radius:8px;
+  box-shadow:0 4px 0 rgba(0,0,0,.28),inset 0 0 60px rgba(60,40,20,.25);position:relative}
+.plaque{background:var(--walnut);color:var(--amber-hi);font:600 13px/1 var(--mono);
+  letter-spacing:.12em;text-transform:uppercase;padding:9px 12px;border-radius:6px 6px 0 0;
+  display:flex;justify-content:space-between;align-items:center}
+.plaque .cls{color:var(--danger);font-weight:700}
 
-/* bottom transport */
-#dock{left:0;right:0;bottom:env(safe-area-inset-bottom,0);
-  padding:12px max(16px,env(safe-area-inset-right,0)) 16px max(16px,env(safe-area-inset-left,0))}
-.transport{display:flex;gap:10px;align-items:center;max-width:860px;margin:0 auto}
-button.ctl{background:linear-gradient(#efe6cf,#cdbf9a);color:#2a2008;border:1px solid #9a875a;border-radius:4px;height:40px;
-  min-width:40px;padding:0 10px;font-size:15px;cursor:pointer;flex:none;font-family:var(--mono);
-  box-shadow:inset 0 1px 0 #fff8e6,0 1px 2px rgba(0,0,0,.5)}
-button.play{background:linear-gradient(#ffd27a,#ffb000);color:#2a1800;border:1px solid #9a6a10;width:46px;height:46px;
-  border-radius:50%;font-size:16px}
-button.ctl:hover{filter:brightness(1.08)}
-button.ctl:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
-input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:5px}
-.clock{font-family:var(--mono);font-size:13px;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
-.spd{font-family:var(--mono);font-size:12px}
-.banner{position:fixed;inset:auto 0 0 0;z-index:9;text-align:center;font-size:14px;color:var(--muted);padding:10px;background:#0a0803}
-.hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0) + 56px);z-index:4;
-  font-size:14px;color:var(--muted);background:#160f06cc;border:1px solid var(--edge);border-radius:3px;padding:4px 12px;
-  transition:opacity .6s;pointer-events:none}
-@media(max-width:620px){
-  #rail{position:fixed;top:auto;bottom:150px;left:max(12px,env(safe-area-inset-left,0));right:max(12px,env(safe-area-inset-right,0));width:auto;max-height:34%}
-  #sel{display:none}
-  .transport{flex-wrap:wrap;justify-content:center}
-  select{max-width:100%}
+/* requisition (left) */
+#req{position:fixed;top:98px;left:12px;width:270px;max-height:calc(100% - 150px);display:flex;flex-direction:column;
+  overflow:hidden}
+#req .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.sub{font:600 11px var(--mono);letter-spacing:.12em;color:var(--brown);text-transform:uppercase;opacity:.8}
+.tiles{display:flex;flex-direction:column;gap:6px}
+.card{background:var(--paper);border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px;
+  cursor:pointer;position:relative;display:flex;flex-direction:column;gap:2px;transition:transform .08s}
+.card:hover{transform:translateX(2px)}
+.card .nm{font-family:var(--disp);font-size:14px;letter-spacing:.04em;color:var(--brown)}
+.card .meta{font:11px var(--mono);color:var(--brown-2)}
+.card .hole{position:absolute;top:7px;right:8px;width:9px;height:9px;border-radius:50%;
+  background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--brown-2)}
+.card.sel{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.card.sel::after{content:"SELECTED";position:absolute;right:6px;bottom:4px;color:var(--danger);
+  font:700 11px var(--disp);letter-spacing:.1em;border:2px solid var(--danger);border-radius:4px;
+  padding:0 4px;transform:rotate(-7deg);opacity:.85}
+.form29{background:#201711;border:2px solid var(--brown-2);border-radius:6px;padding:8px;
+  font:11px/1.5 var(--mono);color:var(--amber-hi);white-space:pre-wrap}
+.form29 b{color:var(--cream)}
+
+/* damage report (right) */
+#report{position:fixed;top:98px;right:12px;width:300px;max-height:calc(100% - 150px);display:flex;flex-direction:column;overflow:hidden}
+#report .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.nixies{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nixie{background:#120C06;border:2px solid var(--brown-2);border-radius:6px;padding:7px 8px}
+.nixie .k{font:10px var(--mono);letter-spacing:.1em;color:#9a7a44;text-transform:uppercase}
+.nixie .v{font-family:var(--mono);font-size:22px;color:var(--amber-hi);text-shadow:0 0 8px rgba(240,168,54,.5);
+  font-variant-numeric:tabular-nums;margin-top:2px}
+.nixie .v small{font-size:12px;color:#9a7a44}
+.nixie.hot .v{color:#ff9a6a;text-shadow:0 0 10px rgba(214,52,40,.6)}
+.comp{display:flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--brown-2);
+  border-radius:6px;padding:6px 8px}
+.comp .nm{flex:1;font-family:var(--disp);font-size:13px;color:var(--brown)}
+.comp .meta{font:11px var(--mono);color:var(--brown-2)}
+.stamp{font:700 12px var(--disp);letter-spacing:.08em;border:2px solid;border-radius:4px;padding:1px 6px;
+  transform:rotate(-6deg)}
+.stamp.cleared{color:var(--olive);border-color:var(--olive)}
+.stamp.stressed{color:var(--orange);border-color:var(--orange)}
+.stamp.damaged{color:var(--danger);border-color:var(--danger)}
+.dial{display:flex;align-items:center;gap:10px}
+.dial svg{width:110px;height:64px;flex:none}
+.dial .lbl{font:600 11px var(--mono);letter-spacing:.1em;color:var(--brown);text-transform:uppercase}
+.dial .sc{font-family:var(--disp);font-size:30px;color:var(--brown)}
+.crt{background:#120C06;border:8px solid var(--brown-2);border-radius:10px;color:var(--amber-hi);
+  font:11px/1.5 var(--mono);text-shadow:0 0 6px rgba(255,170,60,.5);padding:10px;position:relative;
+  overflow:hidden;max-height:168px;overflow-y:auto}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(#0000 0 2px,#00000055 2px 3px)}
+.ln{display:flex;gap:6px}.ln .t{color:#9a7a44;min-width:42px}
+.ln.attack .m{color:#ffd79a}.ln.alert .m{color:#ff8a6a}.ln.alert .t{color:#ff8a6a}
+.variant{position:absolute;right:16px;top:120px;color:var(--danger);border:5px double var(--danger);
+  border-radius:8px;font:700 26px var(--disp);letter-spacing:.1em;padding:8px 16px;transform:rotate(-10deg);
+  opacity:0;z-index:30;pointer-events:none;text-shadow:0 0 2px rgba(0,0,0,.3)}
+.variant.show{animation:slam .5s cubic-bezier(.2,1.4,.3,1) forwards}
+@keyframes slam{0%{opacity:0;transform:rotate(-10deg) scale(1.6)}100%{opacity:.9;transform:rotate(-10deg) scale(1)}}
+
+/* dock / transport */
+#dock{bottom:40px;left:0;right:0;display:flex;justify-content:center;z-index:10}
+.transport{display:flex;gap:10px;align-items:center;background:var(--walnut);border:2px solid var(--brown-2);
+  border-radius:10px;padding:8px 12px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.tva-btn{background:var(--amber);color:var(--walnut);border:none;border-radius:6px;box-shadow:0 4px 0 var(--orange);
+  font:700 15px var(--disp);letter-spacing:.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer}
+.tva-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--orange)}
+.ctl{background:var(--brown-2);color:var(--cream);border:1px solid #000;border-radius:5px;height:38px;min-width:38px;
+  padding:0 10px;font:14px var(--mono);cursor:pointer}
+.ctl:active{transform:translateY(2px)}
+input[type=range]{width:190px;accent-color:var(--amber);height:5px}
+.clk2{font:14px var(--mono);color:var(--amber-hi);min-width:58px;text-align:right}
+
+/* seal */
+.seal{filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+#seal-corner{position:fixed;top:92px;right:320px;width:78px;height:78px;z-index:11;pointer-events:none}
+.seal .ring-txt{font:700 11px var(--disp);letter-spacing:.18em;fill:var(--cream)}
+.seal .tick{stroke:var(--amber-hi);stroke-width:2}
+
+/* landing — Case Intake */
+#landing{position:fixed;inset:0;z-index:60;background:
+   radial-gradient(1000px 700px at 50% 30%,#1f160d 0%,#120c06 70%);
+   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--cream);text-align:center;padding:20px}
+#landing .big{font-family:var(--disp);font-size:clamp(48px,11vw,104px);line-height:.92;color:var(--amber-hi);
+  text-shadow:6px 6px 0 var(--orange),0 0 40px rgba(240,168,54,.3)}
+#landing .plq{background:var(--walnut);border:2px solid var(--amber);color:var(--amber-hi);
+  font:600 14px var(--mono);letter-spacing:.2em;padding:8px 16px;border-radius:6px;text-transform:uppercase}
+#landing .seal{width:150px;height:150px}
+#landing .stampmark{color:var(--danger);border:5px double var(--danger);border-radius:8px;
+  font:700 22px var(--disp);letter-spacing:.12em;padding:6px 14px;transform:rotate(-8deg);opacity:.85}
+.banner{position:fixed;inset:auto 0 70px 0;z-index:62;text-align:center;font:13px var(--mono);color:var(--danger)}
+
+@media(max-width:820px){
+  #req,#report{position:fixed;width:auto;left:10px;right:10px;max-height:34%}
+  #req{top:92px}#report{top:auto;bottom:150px}
+  #seal-corner{display:none}
+  input[type=range]{width:34vw}
 }
 </style>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<div id="bezel"></div>
-<div id="crt"></div>
-<div id="flick"></div>
+<div id="paperfx"></div><div id="vignette"></div>
 
-<div class="hud" id="top">
-  <div class="brand">
-    <h1><b>Spark</b>Trail · Tracer</h1>
-    <div class="badges" id="badges"></div>
-  </div>
-  <div class="picker">
-    <span class="pk-lbl">TARGET</span><select id="target-select"></select>
-    <span class="pk-lbl">ATTACK</span><select id="attack-select"></select>
+<!-- ===== global chrome ===== -->
+<div class="hud" id="topbar">
+  <span class="wm">TIME VARIANCE AUTHORITY</span>
+  <span class="sp"></span>
+  <span class="cf" id="casefile">CASE FILE TVA-000</span>
+  <span class="clk" id="clk">00:00</span>
+</div>
+<div class="hud" id="lamps">
+  <div id="lampsweep"></div>
+  <div class="lamp on" data-l="pwr"><i></i>POWER</div>
+  <div class="lamp" data-l="run"><i></i>RUNNING</div>
+  <div class="lamp" data-l="spoof"><i></i>SENSOR FORGED</div>
+  <div class="lamp" data-l="over"><i></i>OVERLOAD</div>
+  <div class="lamp alert" data-l="alert"><i></i>ALERT</div>
+  <div class="lamp" data-l="variant"><i></i>VARIANT LOGGED</div>
+</div>
+
+<svg id="seal-corner" class="seal" viewBox="0 0 200 200" aria-hidden="true"></svg>
+
+<!-- ===== requisition (STEP 1+2) ===== -->
+<div class="hud tva-panel" id="req">
+  <div class="plaque"><span>REQUISITION · FORM 29-B</span><span class="cls" id="req-cls">CLASSIFIED</span></div>
+  <div class="body">
+    <div class="sub">① Target — infrastructure under test</div>
+    <div class="tiles" id="targets"></div>
+    <div class="sub">② Tampering action</div>
+    <div class="tiles" id="attacks"></div>
+    <div class="sub">Filed injections</div>
+    <div class="form29" id="form29"></div>
   </div>
 </div>
 
-<div class="hint" id="hint">pick a TARGET then an ATTACK (top-right) · drag to orbit · scroll to zoom · click a node to focus</div>
-
-<div class="hud glass" id="rail">
-  <div class="tiles" id="tiles"></div>
-  <div class="sec-h">Propagation trace</div>
-  <div class="trace" id="trace"></div>
-  <div class="sec-h">Legend</div>
-  <div class="legend">
-    <span><i style="background:var(--accent)"></i>attack / signal</span>
-    <span><i style="background:var(--heat-hot)"></i>pack heat</span>
-    <span><i style="background:var(--warn)"></i>alert</span>
-    <span><span class="flag modelled">modelled</span></span>
-    <span><span class="flag illustrative">illustrative</span></span>
+<!-- ===== damage report (STEP 3) ===== -->
+<div class="hud tva-panel" id="report">
+  <div class="plaque"><span>CASE FILE · DAMAGE REPORT</span><span id="rep-case">TVA-000</span></div>
+  <div class="body">
+    <div class="nixies" id="nixies"></div>
+    <div class="dial">
+      <svg viewBox="0 0 120 70" id="impactdial"></svg>
+      <div><div class="lbl">Impact score</div><div class="sc" id="impactval">0.0</div></div>
+    </div>
+    <div class="sub">Components</div>
+    <div id="components" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="sub">Trace — temporal event log</div>
+    <div class="crt" id="crt"></div>
   </div>
 </div>
+<div class="variant" id="variantstamp">VARIANT LOGGED</div>
 
-<div class="hud glass" id="sel" hidden><div class="n" id="sel-n"></div><div class="s" id="sel-s"></div></div>
-
+<!-- ===== dock ===== -->
 <div class="hud" id="dock">
   <div class="transport">
     <button class="ctl" id="reset" title="Reset view">⟲</button>
     <button class="ctl" id="back" title="Step back">⏮</button>
-    <button class="ctl play" id="play">❚❚</button>
+    <button class="tva-btn" id="exec">▸ EXECUTE TEMPORAL EVENT</button>
     <button class="ctl" id="fwd" title="Step forward">⏭</button>
     <input type="range" id="range" min="0" max="100" value="0">
-    <button class="ctl spd" id="speed" title="Playback speed">1×</button>
-    <div class="clock" id="clock">0s</div>
+    <button class="ctl" id="speed">1×</button>
+    <span class="clk2" id="clock">0s</span>
   </div>
+</div>
+
+<div class="hud" id="bottombar">
+  <span>CHENNAI INSTITUTE OF TECHNOLOGY · CSBS</span>
+  <span id="amb">AMBIENT 35°C · T +00:00</span>
 </div>
 
 <div class="banner" id="banner" hidden></div>
 
+<!-- ===== landing · Case Intake ===== -->
+<div id="landing">
+  <svg class="seal" viewBox="0 0 200 200"></svg>
+  <div class="big">SPARK<br>TRAIL</div>
+  <div class="plq">CYBER-TO-PHYSICAL IMPACT TRACING UNIT</div>
+  <button class="tva-btn" id="open" style="font-size:18px;padding:14px 28px">[ OPEN NEW CASE FILE ]</button>
+  <div class="stampmark">TEMPORAL INFRASTRUCTURE DIV</div>
+</div>
+
 <script>
-const $=s=>document.querySelector(s);
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 let SCENES=[], scene3d, cam, renderer, raycaster, nodes={}, tubes=[], pulses=[], glows=[];
-let cur=null, playing=true, tIdx=0, selected=null;
+let cur=null, playing=false, tIdx=0, selected=null, caseNo=0;
 const SPEEDS=[0.5,1,2,4]; let spdI=1;
 
+// ---------- agency seal (SVG) ----------
+function buildSeal(svg){
+  const NS="http://www.w3.org/2000/svg", f=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+  svg.appendChild(f('circle',{cx:100,cy:100,r:96,fill:'#7a5a2a'}));
+  svg.appendChild(f('circle',{cx:100,cy:100,r:92,fill:'none',stroke:'#2B1E12','stroke-width':2}));
+  // 60 tick marks via dashed circle
+  svg.appendChild(f('circle',{cx:100,cy:100,r:86,fill:'none',stroke:'#FFCE6E','stroke-width':4,
+    'stroke-dasharray':'2 7','stroke-dashoffset':1}));
+  svg.appendChild(f('circle',{cx:100,cy:100,r:78,fill:'#120C06'}));
+  const defs=f('defs',{});
+  defs.appendChild(f('path',{id:'arcTop',d:'M28,100 A72,72 0 0 1 172,100'}));
+  defs.appendChild(f('path',{id:'arcBot',d:'M30,104 A70,70 0 0 0 170,104'}));
+  svg.appendChild(defs);
+  const t1=f('text',{class:'ring-txt'}); const tp1=f('textPath',{href:'#arcTop','startOffset':'50%','text-anchor':'middle'});
+  tp1.textContent='★ TIME VARIANCE AUTHORITY ★'; t1.appendChild(tp1); svg.appendChild(t1);
+  const t2=f('text',{class:'ring-txt'}); const tp2=f('textPath',{href:'#arcBot','startOffset':'50%','text-anchor':'middle'});
+  tp2.textContent='TEMPORAL INFRASTRUCTURE DIV'; t2.appendChild(tp2); svg.appendChild(t2);
+  // radiating arcs + lightning bolt
+  for(let i=1;i<=3;i++) svg.appendChild(f('circle',{cx:100,cy:104,r:14*i,fill:'none',stroke:'#F0A836','stroke-width':1.5,opacity:.5}));
+  svg.appendChild(f('path',{d:'M104,74 L88,108 L100,108 L94,132 L116,96 L104,96 Z',fill:'#FFCE6E',
+    stroke:'#D67828','stroke-width':1}));
+}
+$$('.seal').forEach(buildSeal);
+
+// ---------- boot ----------
 async function boot(){
   try{ SCENES=await (await fetch('./scenes.json')).json(); }
   catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes.json — serve this page from the same folder as scenes.json.'; return; }
-  buildPickers();
-  initGL(); selectCell('charger_dcfast','overcurrent_tempspoof'); animate();
-  setTimeout(()=>{$('#hint').style.opacity='0';},5000);
+  buildTargets();
+  initGL(); animate();
+  selectTarget('charger_dcfast','overcurrent_tempspoof');
 }
+$('#open').onclick=()=>{ $('#landing').style.display='none'; setPlay(true); execSweep(); };
 
-// ---------- target × attack pickers ----------
-const opt=(v,t)=>{const o=document.createElement('option');o.value=v;o.textContent=t;return o;};
-function buildPickers(){
-  const ts=$('#target-select'), seen=new Set();
-  SCENES.forEach(s=>{ if(!seen.has(s.target)){seen.add(s.target); ts.appendChild(opt(s.target,s.target_label));} });
-  ts.onchange=()=>{ fillAttacks(ts.value); loadCurrent(); };
-  $('#attack-select').onchange=loadCurrent;
+// ---------- requisition tiles ----------
+function metaFor(s){ return s.target.startsWith('grid_') ? s.grid_type : (s.charger_type+' charger'); }
+function buildTargets(){
+  const seen=new Set(), box=$('#targets');
+  SCENES.forEach(s=>{ if(seen.has(s.target))return; seen.add(s.target);
+    const c=document.createElement('div'); c.className='card'; c.dataset.t=s.target;
+    c.innerHTML=`<span class="hole"></span><div class="nm">${s.target_label}</div><div class="meta">${metaFor(s)}</div>`;
+    c.onclick=()=>selectTarget(s.target); box.appendChild(c);
+  });
 }
-function fillAttacks(tk){
-  const as=$('#attack-select'); as.innerHTML='';
-  SCENES.forEach((s,i)=>{ if(s.target===tk) as.appendChild(opt(s.attack, s.attack_label)); });
+function buildAttacks(tk){
+  const box=$('#attacks'); box.innerHTML='';
+  SCENES.forEach(s=>{ if(s.target!==tk)return;
+    const c=document.createElement('div'); c.className='card'; c.dataset.a=s.attack;
+    c.innerHTML=`<span class="hole"></span><div class="nm">${s.attack_label}</div>`;
+    c.onclick=()=>selectAttack(tk,s.attack); box.appendChild(c);
+  });
 }
-function loadCurrent(){
-  const tk=$('#target-select').value, ak=$('#attack-select').value;
+function selectTarget(tk,ak){
+  $$('#targets .card').forEach(c=>c.classList.toggle('sel',c.dataset.t===tk));
+  buildAttacks(tk);
+  const first=ak||SCENES.find(s=>s.target===tk).attack;
+  selectAttack(tk,first);
+}
+function selectAttack(tk,ak){
+  $$('#attacks .card').forEach(c=>c.classList.toggle('sel',c.dataset.a===ak));
   const i=SCENES.findIndex(s=>s.target===tk && s.attack===ak);
-  if(i>=0) loadScene(i);
-}
-function selectCell(tk,ak){
-  const i0=SCENES.findIndex(s=>s.target===tk)>=0?tk:SCENES[0].target;
-  $('#target-select').value=i0; fillAttacks(i0);
-  const as=$('#attack-select');
-  if([...as.options].some(o=>o.value===ak)) as.value=ak;
-  loadCurrent();
+  if(i>=0){ loadScene(i); setPlay(true); execSweep(); }
 }
 
-// ---------- GL ----------
+// ---------- GL (walnut control-room diorama) ----------
 function initGL(){
   scene3d=new THREE.Scene();
-  scene3d.fog=new THREE.FogExp2(0x0a0803,0.028);
+  scene3d.fog=new THREE.FogExp2(0x120c06,0.03);
   cam=new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
   renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(innerWidth,innerHeight);
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
-  scene3d.add(new THREE.AmbientLight(0xb08a4a,0.75));
-  const key=new THREE.PointLight(0xffcf8a,1.1,80); key.position.set(8,14,8); scene3d.add(key);
-  const rim=new THREE.PointLight(0xff7a1a,0.45,80); rim.position.set(-10,6,-6); scene3d.add(rim);
-  const grid=new THREE.GridHelper(60,60,0x4a3a1c,0x241a0a); grid.position.y=-1.7; scene3d.add(grid);
+  scene3d.add(new THREE.AmbientLight(0x6a5230,0.65));
+  const key=new THREE.PointLight(0xffce6e,1.15,90); key.position.set(8,15,8); scene3d.add(key);
+  const rim=new THREE.PointLight(0xd67828,0.4,80); rim.position.set(-10,6,-6); scene3d.add(rim);
+  const grid=new THREE.GridHelper(60,60,0x5c4226,0x241a0a); grid.position.y=-1.7; scene3d.add(grid);
   raycaster=new THREE.Raycaster();
   addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
   installOrbit();
 }
-
-// orbit around a pivot; click-to-focus moves the pivot
 let orb={az:0.75,el:0.5,r:18,idle:0,drag:false,px:0,py:0,moved:0,
   pivot:new THREE.Vector3(0,.3,0), tgt:new THREE.Vector3(0,.3,0), tr:18};
 function installOrbit(){
@@ -241,26 +351,22 @@ function pick(e){
   const hit=raycaster.intersectObjects(groups,true)[0];
   if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o) focusNode(o.userData.node); }
 }
-function focusNode(name){
-  selected=name; const n=nodes[name];
-  orb.tgt.copy(n.pos); orb.tr=Math.max(7, n.focus||9);
-  applyFrame();
-}
-function resetView(){ selected=null; orb.tgt.set(0,.3,0); orb.tr=cur._overview; $('#sel').hidden=true; }
+function focusNode(name){ selected=name; const n=nodes[name]; orb.tgt.copy(n.pos); orb.tr=Math.max(7,n.focus||9); applyFrame(); }
+function resetView(){ selected=null; orb.tgt.set(0,.3,0); orb.tr=cur._overview; }
 function updateCam(dt){
   orb.idle+=dt;
-  if(!orb.drag && orb.idle>3 && !selected) orb.az+=dt*0.06;
+  if(!orb.drag && orb.idle>3 && !selected) orb.az+=dt*0.045;
   orb.pivot.lerp(orb.tgt, Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
   const r=orb.r,e=orb.el,p=orb.pivot;
   cam.position.set(p.x+Math.cos(orb.az)*Math.cos(e)*r, p.y+Math.sin(e)*r, p.z+Math.sin(orb.az)*Math.cos(e)*r);
   cam.lookAt(p);
 }
 
-// ---------- helpers ----------
-function sprite(text,scale=2.4){
+// ---------- mesh helpers ----------
+function sprite(text,scale=2.6){
   const cv=document.createElement('canvas'); cv.width=256;cv.height=64;
-  const g=cv.getContext('2d'); g.fillStyle='#ffcf7a'; g.shadowColor='#ffb000'; g.shadowBlur=8;
-  g.font='34px "VT323",monospace'; g.textAlign='center'; g.fillText(text,128,44);
+  const g=cv.getContext('2d'); g.fillStyle='#FFCE6E'; g.shadowColor='#F0A836'; g.shadowBlur=8;
+  g.font='34px "Oswald","Arial Narrow",sans-serif'; g.textAlign='center'; g.fillText(text,128,44);
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
   sp.scale.set(scale,scale*0.25,1); return sp;
 }
@@ -275,223 +381,251 @@ function addGlow(pos,color,size){
   const s=glowSprite(); s.material.color.set(color); s.scale.set(size,size,1); s.position.copy(pos); s.position.y+=.2;
   scene3d.add(s); glows.push({sp:s,base:size}); return s;
 }
-
 function addLabel(group,name,y){
   const lbl=sprite(name.replace(/charger_0*/,'C').replace('hub_tx','GRID').replace('backend','CSMS'));
   lbl.position.set(0,y,0); group.add(lbl); return lbl;
 }
 function tag(group,name){ group.traverse(o=>{if(o.isMesh)o.userData.node=name;}); }
+const metal=(c,e=0x1a120a,i=0.25)=>new THREE.MeshStandardMaterial({color:c,emissive:e,emissiveIntensity:i,roughness:0.6,metalness:0.4});
 
-// simple box node (the site transformer / hub)
-function node(name,geo,color,pos,focus){
-  const group=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.28,roughness:0.4,metalness:0.35});
-  const mesh=new THREE.Mesh(geo,mat); group.add(mesh);
-  addLabel(group,name,(geo.parameters.height||1.4)/2+0.7);
-  group.position.copy(pos); scene3d.add(group); tag(group,name);
-  nodes[name]={group,mesh,mat,pos:pos.clone(),focus:focus||9,base:color};
+// transformer hub: finned metal box with a gauge face
+function makeTransformer(name,pos,focus){
+  const g=new THREE.Group();
+  const bodyMat=metal(0x5c4226,0x1a120a,0.2);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.5,1.5,1.5),bodyMat); body.position.y=0; g.add(body);
+  for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(1.62,0.08,1.62),metal(0x4a3620));
+    f.position.y=-0.5+i*0.33; g.add(f);}
+  const gauge=new THREE.Mesh(new THREE.CircleGeometry(0.3,20),
+    new THREE.MeshStandardMaterial({color:0xF0E4CA,emissive:0x3a2f18,emissiveIntensity:0.3}));
+  gauge.position.set(0,0.15,0.76); g.add(gauge);
+  const needle=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.26,0.01),new THREE.MeshBasicMaterial({color:0xB03428}));
+  needle.position.set(0,0.15,0.78); needle.geometry.translate(0,0.11,0); g.add(needle);
+  addLabel(g,name,1.5);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:body,mat:bodyMat,needle,pos:pos.clone(),focus:focus||12,base:0x5c4226};
   return nodes[name];
 }
 
-// EV charger built from primitives to read as a real unit (ref: Ather wall-box,
-// SINO / EV-FAST pedestals): plastic body + dark screen + green status strip +
-// connector holster, pedestals get a base. body = heat-tinted/pickable mesh.
-const BEIGE=0xd8cdb0;
+// EV charger (ref: Ather wall-box, SINO/EV-FAST pedestals)
+const BEIGE=0xd0bd94;
 function makeCharger(name,kind,pos,focus){
   const g=new THREE.Group();
   const bodyMat=new THREE.MeshStandardMaterial({color:BEIGE,emissive:0x000000,emissiveIntensity:0,roughness:0.55,metalness:0.15});
   const ac=kind.includes('AC Level'), hpc=kind.includes('HPC')||kind.includes('ultra');
   const buf=kind.includes('Buffered'), v2g=kind.includes('V2G');
   let w=0.75,d=0.6,h=2.0;
-  if(ac){ w=0.7;d=0.32;h=1.15; }            // wall-box
-  else if(hpc){ w=0.9;d=0.75;h=2.5; }        // big HPC cabinet
-  else if(buf){ w=1.0;d=0.9;h=1.9; }         // buffered: fat cabinet
-  else if(v2g){ w=0.72;d=0.6;h=1.8; }
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bodyMat);
-  body.position.y=h/2; g.add(body);
-  if(!ac){ const base=new THREE.Mesh(new THREE.CylinderGeometry(w*0.7,w*0.8,0.22,20),
-      new THREE.MeshStandardMaterial({color:0x5a4a2e,roughness:0.8}));
+  if(ac){ w=0.7;d=0.32;h=1.15; } else if(hpc){ w=0.9;d=0.75;h=2.5; }
+  else if(buf){ w=1.0;d=0.9;h=1.9; } else if(v2g){ w=0.72;d=0.6;h=1.8; }
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bodyMat); body.position.y=h/2; g.add(body);
+  if(!ac){ const base=new THREE.Mesh(new THREE.CylinderGeometry(w*0.7,w*0.8,0.22,20),metal(0x4a3620,0,0));
     base.position.y=0.11; g.add(base); }
-  const fz=d/2+0.015;                        // front face z
-  // dark screen
+  const fz=d/2+0.015;
   const screen=new THREE.Mesh(new THREE.BoxGeometry(w*0.6,h*0.22,0.03),
     new THREE.MeshStandardMaterial({color:0x0b0a06,emissive:0x16351f,emissiveIntensity:0.35}));
   screen.position.set(0,h*0.72,fz); g.add(screen);
-  // green vertical status strip (Ather) — also the heat indicator
-  const led=new THREE.Mesh(new THREE.BoxGeometry(w*0.11,h*0.34,0.02),
-    new THREE.MeshBasicMaterial({color:0x33ff66}));
+  const led=new THREE.Mesh(new THREE.BoxGeometry(w*0.11,h*0.34,0.02),new THREE.MeshBasicMaterial({color:0x33ff66}));
   led.position.set(0,h*0.40,fz); g.add(led);
-  // connector holster on the side
-  const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.2,10),
-    new THREE.MeshStandardMaterial({color:0x0b0a06,roughness:0.6}));
+  const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.2,10),metal(0x0b0a06,0,0));
   hol.position.set(w*0.5,h*0.55,d*0.1); g.add(hol);
-  if(hpc){ // cooling vent fins up the side
-    for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),
-      new THREE.MeshStandardMaterial({color:0x7a6a45}));f.position.set(0,h*(0.5+i*0.09),-d*0.2);g.add(f);} }
+  if(hpc){ for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),metal(0x7a6a45));
+    f.position.set(0,h*(0.5+i*0.09),-d*0.2);g.add(f);} }
   addLabel(g,name,h+0.55);
   g.position.copy(pos); scene3d.add(g); tag(g,name);
   nodes[name]={group:g,mesh:body,mat:bodyMat,led,pos:pos.clone(),focus:focus||9,base:BEIGE};
   return nodes[name];
 }
 
-// backend = OCPP CSMS cloud (ref: "OCPP CSMS cloud platform"): a cluster of puffs
-function makeCloud(name,pos,focus){
+// backend = reel-to-reel server rack (OCPP CSMS)
+function makeServer(name,pos,focus){
   const g=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color:0xe9ddbe,emissive:0x2a2210,emissiveIntensity:0.35,roughness:0.7});
-  const main=new THREE.Mesh(new THREE.SphereGeometry(0.72,18,18),mat); g.add(main);
-  [[-0.65,0.05,0,0.5],[0.62,0.0,0.1,0.52],[0.0,0.42,-0.05,0.46],[0.25,-0.12,0.35,0.38]]
-    .forEach(([x,y,z,r])=>{const s=new THREE.Mesh(new THREE.SphereGeometry(r,14,14),mat);s.position.set(x,y,z);g.add(s);});
-  addLabel(g,name,1.2);
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.0,0.85),metal(0x3a2a1a,0x1a120a,0.15)); cab.position.y=1.0; g.add(cab);
+  for(const yy of [1.5,1.2]){ for(const xx of [-0.25,0.25]){
+    const reel=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.05,10,24),new THREE.MeshStandardMaterial({color:0xF0A836,emissive:0xF0A836,emissiveIntensity:0.5}));
+    reel.position.set(xx,yy,0.44); g.add(reel); } }
+  for(let i=0;i<4;i++){const l=new THREE.Mesh(new THREE.CircleGeometry(0.04,10),new THREE.MeshBasicMaterial({color:0xFFCE6E}));
+    l.position.set(-0.4+i*0.12,0.75,0.44); g.add(l);}
+  addLabel(g,name,2.2);
   g.position.copy(pos); scene3d.add(g); tag(g,name);
-  nodes[name]={group:g,mesh:main,mat,pos:pos.clone(),focus:focus||11,base:0xe9ddbe};
+  nodes[name]={group:g,mesh:cab,mat:cab.material,pos:pos.clone(),focus:focus||11,base:0x3a2a1a};
   return nodes[name];
 }
-function tube(a,b,color=0x243247){
+
+function tube(a,b,color=0x5c4226){
   const g=new THREE.TubeGeometry(new THREE.LineCurve3(a.clone(),b.clone()),1,0.035,8,false);
-  const t=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.35}));
+  const t=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.3}));
   scene3d.add(t); tubes.push(t); return {a:a.clone(),b:b.clone()};
 }
-
 function clearScene(){
   Object.values(nodes).forEach(n=>scene3d.remove(n.group));
   tubes.forEach(t=>scene3d.remove(t)); pulses.forEach(p=>scene3d.remove(p.mesh)); glows.forEach(g=>scene3d.remove(g.sp));
   (cur&&cur._decor||[]).forEach(d=>scene3d.remove(d));
   nodes={};tubes=[];pulses=[];glows=[];
 }
-
 function buildScene(s){
   clearScene(); s._decor=[];
   const cns=s.chargers, n=cns.length;
-  makeCloud('backend',new THREE.Vector3(-8,1.4,0),11);
-  const hub=node('hub_tx',new THREE.BoxGeometry(1.5,1.5,1.5),0x9a865a,new THREE.Vector3(0,0,0),12);
-  tube(nodes['backend'].pos,nodes['hub_tx'].pos,0x5a4826);
-  // grid-type decoration around the hub
+  makeServer('backend',new THREE.Vector3(-8,0,0),11);
+  makeTransformer('hub_tx',new THREE.Vector3(0,0,0),12);
+  tube(nodes['backend'].pos.clone().setY(0.6),nodes['hub_tx'].pos,0x5c4226);
   decorateGrid(s.grid_type,s);
-  // chargers on an arc to the right
   const R=Math.max(4,n*0.42);
   cns.forEach((cn,i)=>{
     const ang=n===1?0:(i/(n-1)-0.5)*Math.PI*(n>10?1.4:0.95);
     const pos=new THREE.Vector3(Math.cos(ang)*R+5, 0, Math.sin(ang)*R);
     makeCharger(cn,s.charger_type,pos,8);
     tube(nodes['hub_tx'].pos,pos,0x4a3a1c);
-    addGlow(pos,0x3b82f6,0.01); // heat halo, grows with temp
+    addGlow(pos,0xF0A836,0.01);
   });
   s._overview=Math.max(15,10+n*0.5); orb.r=s._overview; orb.tr=s._overview;
   orb.tgt.set(0,.3,0); orb.pivot.set(0,.3,0); selected=null;
-  // badges
-  $('#badges').innerHTML =
-    `<span class="badge"><b>${s.charger_type}</b> charger</span>`+
-    `<span class="badge"><b>${s.grid_type}</b></span>`+
-    `<span class="badge">${n}×</span>`;
 }
-
 function decorateGrid(kind,s){
   const mk=(m)=>{scene3d.add(m);s._decor.push(m);return m;};
   if(kind.includes('Islanded')||kind.includes('BESS')){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,0.05,8,48),
-      new THREE.MeshStandardMaterial({color:0xffb000,emissive:0xffb000,emissiveIntensity:0.6}));
+      new THREE.MeshStandardMaterial({color:0xF0A836,emissive:0xF0A836,emissiveIntensity:0.6}));
     ring.rotation.x=Math.PI/2; ring.position.y=-1.5; mk(ring); s._ring=ring;
   }
   if(kind.includes('BESS')){
-    const b=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.7),
-      new THREE.MeshStandardMaterial({color:0x22c55e,emissive:0x16351f,emissiveIntensity:0.5}));
-    b.position.set(0,0,-2.2); mk(b); mk((()=>{const l=sprite('BESS',1.6);l.position.set(0,1.1,-2.2);return l;})());
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.7),metal(0x787842,0x2a3010,0.4));
+    b.position.set(0,0,-2.2); mk(b); mk((()=>{const l=sprite('BESS',1.8);l.position.set(0,1.1,-2.2);return l;})());
   }
   if(kind.includes('LV distribution')){
-    const pv=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.0),
-      new THREE.MeshStandardMaterial({color:0x1e3a8a,emissive:0x1e3a8a,emissiveIntensity:0.4,side:THREE.DoubleSide}));
-    pv.rotation.x=-Math.PI/3; pv.position.set(0,0.2,-2.4); mk(pv); mk((()=>{const l=sprite('PV',1.3);l.position.set(0,1.1,-2.4);return l;})());
+    const pv=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.0),metal(0x467874,0x15302e,0.4));
+    pv.material.side=THREE.DoubleSide; pv.rotation.x=-Math.PI/3; pv.position.set(0,0.2,-2.4);
+    mk(pv); mk((()=>{const l=sprite('PV',1.5);l.position.set(0,1.1,-2.4);return l;})());
   }
 }
 
-// ---------- color ramp ----------
+// ---------- heat ramp (teal -> amber -> danger) ----------
 function heat(T){
   const x=Math.max(0,Math.min(1,(T-35)/(60-35))), c=new THREE.Color();
-  if(x<0.5)c.lerpColors(new THREE.Color(0x3b82f6),new THREE.Color(0xf59e0b),x*2);
-  else c.lerpColors(new THREE.Color(0xf59e0b),new THREE.Color(0xef4444),(x-0.5)*2);
+  if(x<0.5)c.lerpColors(new THREE.Color(0x467874),new THREE.Color(0xF0A836),x*2);
+  else c.lerpColors(new THREE.Color(0xF0A836),new THREE.Color(0xB03428),(x-0.5)*2);
   return c;
 }
-
-// ---------- pulses ----------
 function srcOf(m){ return (m.node&&m.node.includes('backend'))?'backend':'hub_tx'; }
 function spawnPulse(from,to){
-  const m=new THREE.Mesh(new THREE.SphereGeometry(0.18,12,12),
-    new THREE.MeshBasicMaterial({color:0xffb000}));
-  const gl=addGlow(nodes[from].pos,0xffb000,1.4);
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.18,12,12),new THREE.MeshBasicMaterial({color:0xF0A836}));
+  const gl=addGlow(nodes[from].pos,0xF0A836,1.4);
   scene3d.add(m); pulses.push({mesh:m,glow:gl,from:nodes[from].pos.clone(),to:nodes[to].pos.clone(),u:0});
 }
 
-// ---------- frame ----------
+// ---------- per-frame ----------
 function applyFrame(){
   if(!cur)return; const fr=cur.timeline[tIdx]; if(!fr)return;
   cur.chargers.forEach((cn,i)=>{
     const st=fr.chargers[cn]; if(!st||!nodes[cn])return;
     const col=heat(st.temp), hot=Math.max(0,Math.min(1,(st.temp-40)/18));
-    // body stays plastic-beige; it glows hotter via emissive, and the status strip goes green->red
     nodes[cn].mat.emissive.copy(col); nodes[cn].mat.emissiveIntensity=0.12+0.8*hot;
-    if(nodes[cn].led) nodes[cn].led.material.color.set(new THREE.Color(0x33ff66).lerp(new THREE.Color(0xff3b30),hot));
+    if(nodes[cn].led) nodes[cn].led.material.color.set(new THREE.Color(0x33ff66).lerp(new THREE.Color(0xB03428),hot));
     const gl=glows[i]; if(gl){gl.sp.material.color.copy(col); gl.sp.scale.setScalar(0.01+hot*2.6);}
     if(selected===cn) nodes[cn].mesh.scale.setScalar(1.12); else nodes[cn].mesh.scale.setScalar(1);
   });
   const hub=nodes['hub_tx'];
-  if(hub){
-    const over=Math.max(0,(fr.load-100)/80);
-    const c=new THREE.Color(0x46607f).lerp(new THREE.Color(0xef4444),Math.min(1,over));
-    hub.mat.color.copy(c); hub.mat.emissive.copy(c); hub.mat.emissiveIntensity=0.28+over*0.9;
+  if(hub){ const over=Math.max(0,Math.min(1,(fr.load-100)/80));
+    const c=new THREE.Color(0x5c4226).lerp(new THREE.Color(0xB03428),over);
+    hub.mat.color.copy(c); hub.mat.emissive.copy(c); hub.mat.emissiveIntensity=0.2+over*0.9;
+    if(hub.needle) hub.needle.rotation.z=-Math.min(1.4,(fr.load/150)*1.4)+0.7;
   }
-  if(cur._ring){ // frequency: ring brightness + color off-nominal
-    const f=fr.freq; if(f!=null){ const dev=Math.min(1,Math.abs(f-50)/1.5);
-      cur._ring.material.color.set(new THREE.Color(0xffb000).lerp(new THREE.Color(0xff3b30),dev));
-      cur._ring.material.emissiveIntensity=0.5+dev; }
-  }
-  renderPanel(fr);
+  if(cur._ring){ const f=fr.freq; if(f!=null){ const dev=Math.min(1,Math.abs(f-50)/1.5);
+    cur._ring.material.color.set(new THREE.Color(0xF0A836).lerp(new THREE.Color(0xB03428),dev));
+    cur._ring.material.emissiveIntensity=0.5+dev; } }
+  renderReport(fr);
+  updateLamps(fr);
 }
-
 let lastT=-1;
 function fireMarkers(t){ cur.markers.forEach(m=>{ if(m.t<=t&&m.t>lastT) spawnPulse(srcOf(m),cur.chargers[0]); }); lastT=t; }
 
-// ---------- panel ----------
-const tile=(k,v,u='',cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:''}</div></div>`;
-const gaugeTile=(k,v,u,pct,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}<small>${u}</small></div><div class="gauge"><i style="width:${Math.max(2,Math.min(100,pct))}%"></i></div></div>`;
-const row=(cls,t,m,flag)=>`<div class="row ${cls}"><span class="t">${t|0}s</span><span class="m">${m}</span><span class="flag ${flag}">${flag}</span></div>`;
+// ---------- damage report ----------
+const mmss=s=>{s=Math.max(0,Math.round(s||0));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
+const nixie=(k,v,u='',hot=false)=>`<div class="nixie ${hot?'hot':''}"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:''}</div></div>`;
+function stampFor(kind,val){
+  let s='cleared',txt='CLEARED';
+  if(kind==='temp'){ if(val>=55){s='damaged';txt='DAMAGED';} else if(val>=45){s='stressed';txt='STRESSED';} }
+  if(kind==='load'){ if(val>=130){s='damaged';txt='DAMAGED';} else if(val>=100){s='stressed';txt='STRESSED';} }
+  return `<span class="stamp ${s}">${txt}</span>`;
+}
+function renderReport(fr){
+  const sc=cur.score;
+  const peakT=sc.peak_pack_temp_C, load=sc.peak_transformer_load_pct;
+  let nx=nixie('Peak pack temp',peakT,'°C',peakT>=50)+
+         nixie('Transformer load',load,'%',load>=100)+
+         nixie('Time to impact', sc.time_to_impact_s!=null?mmss(sc.time_to_impact_s):'--:--')+
+         nixie('Detection delay', sc.detection_delay_s!=null?sc.detection_delay_s+'s':'—');
+  if(sc.peak_coolant_temp_C!=null) nx+=nixie('Coolant peak',sc.peak_coolant_temp_C,'°C',sc.peak_coolant_temp_C>=50);
+  if(fr.freq!=null) nx+=nixie('Frequency',fr.freq,'Hz',(fr.freq<49.5||fr.freq>50.5));
+  if(fr.volt!=null) nx+=nixie('Bus voltage',fr.volt,'%',(fr.volt<94||fr.volt>106));
+  $('#nixies').innerHTML=nx;
 
-function renderPanel(fr){
-  const sc=cur.score, t=fr.t;
-  let tiles=tile('Impact',sc.impact_score)+
-    tile('Peak pack',sc.peak_pack_temp_C,'°C', sc.peak_pack_temp_C>=50?'hot':'')+
-    gaugeTile('Transformer',sc.peak_transformer_load_pct,'%',sc.peak_transformer_load_pct, sc.peak_transformer_load_pct>100?'warn':'')+
-    gaugeTile('Bus voltage',fr.volt==null?'—':fr.volt,'%',fr.volt==null?0:(fr.volt-80)*2.5, (fr.volt!=null&&(fr.volt<94||fr.volt>106))?'warn':'');
-  if(sc.peak_coolant_temp_C!=null) tiles+=tile('Coolant',sc.peak_coolant_temp_C,'°C');
-  if(fr.freq!=null) tiles+=gaugeTile('Frequency',fr.freq,'Hz',((fr.freq-48)/4)*100, (fr.freq<49.5||fr.freq>50.5)?'warn':'');
-  if(fr.bess!=null) tiles+=gaugeTile('BESS SoC',fr.bess,'%',fr.bess);
-  $('#tiles').innerHTML=tiles;
+  // impact dial
+  $('#impactval').textContent=(+sc.impact_score).toFixed(1);
+  drawDial(+sc.impact_score);
 
-  const shown=cur.markers.filter(m=>m.t<=t).slice(-5).reverse();
-  let rows=shown.map(m=>row(m.type,m.t,`${m.node} · ${m.label}`,m.type==='attack'?'illustrative':'modelled')).join('');
+  // components
+  const gridScene=cur.target&&cur.target.startsWith('grid_');
+  let comps='';
+  comps+=`<div class="comp"><span class="nm">CSMS backend</span><span class="meta">OCPP link</span>${
+    (cur.attack&&cur.attack.includes('loadshed'))?'<span class="stamp stressed">STRESSED</span>':'<span class="stamp cleared">CLEARED</span>'}</div>`;
+  comps+=`<div class="comp"><span class="nm">GRID transformer</span><span class="meta">${load}%</span>${stampFor('load',load)}</div>`;
+  comps+=`<div class="comp"><span class="nm">${gridScene?cur.chargers.length+'× chargers':'Charger C1'}</span><span class="meta">${peakT}°C</span>${stampFor('temp',peakT)}</div>`;
+  $('#components').innerHTML=comps;
+
+  // CRT trace log
+  const t=fr.t, shown=cur.markers.filter(m=>m.t<=t).slice(-6).reverse();
+  let rows=shown.map(m=>`<div class="ln ${m.type}"><span class="t">+${m.t|0}s</span><span class="m">${m.node} · ${m.label}</span></div>`).join('');
   const c0=fr.chargers[cur.chargers[0]];
-  if(c0){
-    const spoof=Math.abs(c0.reported-c0.temp)>1, vlow=fr.volt!=null&&(fr.volt<94||fr.volt>106);
-    rows=row('physics',t,`${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A`,'modelled')+
-      (c0.coolant!=null?row('physics',t,`coolant ${c0.coolant}°C`,'modelled'):'')+
-      (fr.volt!=null?row(vlow?'alert':'physics',t,`bus ${fr.volt}%${fr.freq!=null?` · ${fr.freq}Hz`:''} · load ${fr.load}%`,'modelled'):'')+
-      (spoof?row('attack',t,`reported ${c0.reported}°C (spoofed)`,'illustrative'):'')+rows;
+  if(c0){ const spoof=Math.abs(c0.reported-c0.temp)>1, vbad=fr.volt!=null&&(fr.volt<94||fr.volt>106);
+    rows=`<div class="ln"><span class="t">+${t|0}s</span><span class="m">${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A</span></div>`+
+      (c0.coolant!=null?`<div class="ln"><span class="t">+${t|0}s</span><span class="m">coolant ${c0.coolant}°C</span></div>`:'')+
+      (fr.volt!=null?`<div class="ln ${vbad?'alert':''}"><span class="t">+${t|0}s</span><span class="m">bus ${fr.volt}%${fr.freq!=null?` · ${fr.freq}Hz`:''} · load ${fr.load}%</span></div>`:'')+
+      (spoof?`<div class="ln attack"><span class="t">+${t|0}s</span><span class="m">reported ${c0.reported}°C — FORGED</span></div>`:'')+rows;
   }
-  $('#trace').innerHTML=rows||'<div class="row"><span class="m">no events yet</span></div>';
-
-  if(selected){
-    const n=nodes[selected], st=fr.chargers[selected];
-    $('#sel').hidden=false; $('#sel-n').textContent=selected;
-    if(st) $('#sel-s').innerHTML=`true ${st.temp}°C · ${st.current}A${st.coolant!=null?` · coolant ${st.coolant}°C`:''}<br>reported ${st.reported}°C`;
-    else if(selected==='hub_tx') $('#sel-s').innerHTML=`load ${fr.load}% · bus ${fr.volt}%${fr.freq!=null?`<br>freq ${fr.freq}Hz${fr.bess!=null?` · SoC ${fr.bess}%`:''}`:''}`;
-    else $('#sel-s').textContent='backend / CSMS link';
-  }
+  $('#crt').innerHTML=rows||'<div class="ln"><span class="m">awaiting temporal event…</span></div>';
+}
+function drawDial(v){
+  const svg=$('#impactdial'); const ang=Math.PI*(1 - Math.min(10,Math.max(0,v))/10);
+  const cx=60,cy=62,r=46, x=cx+r*Math.cos(ang), y=cy-r*Math.sin(ang);
+  svg.innerHTML=`<path d="M14,62 A46,46 0 0 1 106,62" fill="none" stroke="#3A2A1A" stroke-width="7"/>
+    <path d="M14,62 A46,46 0 0 1 106,62" fill="none" stroke="#F0A836" stroke-width="7"
+      stroke-dasharray="${Math.PI*r}" stroke-dashoffset="${Math.PI*r*(1-Math.min(10,v)/10)}"/>
+    <line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#B03428" stroke-width="3"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#2B1E12"/>`;
+}
+function updateLamps(fr){
+  const sc=cur.score, t=fr.t;
+  const set=(l,on)=>$(`.lamp[data-l="${l}"]`).classList.toggle('on',!!on);
+  set('run',playing);
+  const c0=fr.chargers[cur.chargers[0]];
+  set('spoof', c0 && Math.abs(c0.reported-c0.temp)>1);
+  set('over', fr.load>100);
+  set('alert', sc.monitor_alert_t_s!=null && t>=sc.monitor_alert_t_s);
+  set('variant', tIdx>=cur.timeline.length-1);
 }
 
 // ---------- transport ----------
-function loadScene(i){ cur=SCENES[i]; tIdx=0; lastT=-1; $('#range').max=cur.timeline.length-1; buildScene(cur); applyFrame(); updateClock(); }
-function updateClock(){ $('#clock').textContent=Math.round(cur.timeline[tIdx].t)+'s'; }
-function setPlay(p){ playing=p; $('#play').textContent=p?'❚❚':'▶'; }
-$('#play').onclick=()=>setPlay(!playing);
+function loadScene(i){
+  cur=SCENES[i]; tIdx=0; lastT=-1; caseNo++;
+  const cf='TVA-'+String(100+caseNo).padStart(3,'0');
+  $('#casefile').textContent='CASE FILE '+cf; $('#rep-case').textContent=cf;
+  $('#req-cls').textContent = (cur.attack&&cur.attack.includes('spoof'))?'FORGED':'CLASSIFIED';
+  $('#variantstamp').classList.remove('show');
+  $('#range').max=cur.timeline.length-1; $('#range').value=0;
+  buildFormList();
+  buildScene(cur); applyFrame(); updateClock();
+}
+function buildFormList(){
+  const atks=cur.markers.filter(m=>m.type==='attack');
+  let txt=`TARGET  <b>${cur.target_label}</b>\nACTION  <b>${cur.attack_label}</b>\n`;
+  if(atks.length){ txt+=`\nINJECTIONS:\n`+atks.map(m=>`  · ${m.node.replace('cyber.','')} ${m.field} = ${m.label}`).join('\n'); }
+  else txt+=`\n(no injection markers)`;
+  $('#form29').textContent=txt;
+}
+function updateClock(){ const t=Math.round(cur.timeline[tIdx].t);
+  $('#clock').textContent=t+'s'; $('#clk').textContent=mmss(t); $('#amb').textContent=`AMBIENT 35°C · T +${mmss(t)}`; }
+function setPlay(p){ playing=p; $('#exec').textContent=p?'❚❚ RUNNING':'▸ EXECUTE TEMPORAL EVENT'; }
+function execSweep(){ const s=$('#lampsweep'); s.classList.remove('go'); void s.offsetWidth; s.classList.add('go'); }
+$('#exec').onclick=()=>{ if(tIdx>=cur.timeline.length-1){tIdx=0;lastT=-1;$('#variantstamp').classList.remove('show');} setPlay(!playing); if(playing)execSweep(); };
 $('#reset').onclick=resetView;
 $('#back').onclick=()=>{setPlay(false);tIdx=Math.max(0,tIdx-1);$('#range').value=tIdx;lastT=cur.timeline[tIdx].t;applyFrame();updateClock();};
 $('#fwd').onclick =()=>{setPlay(false);tIdx=Math.min(cur.timeline.length-1,tIdx+1);$('#range').value=tIdx;fireMarkers(cur.timeline[tIdx].t);applyFrame();updateClock();};
@@ -506,7 +640,7 @@ function animate(){
   if(cur){
     if(playing){ acc+=dt*SPEEDS[spdI];
       if(acc>0.06){ acc=0; tIdx=Math.min(tIdx+1,cur.timeline.length-1); $('#range').value=tIdx; updateClock();
-        if(tIdx>=cur.timeline.length-1) setPlay(false);
+        if(tIdx>=cur.timeline.length-1){ setPlay(false); $('#variantstamp').classList.add('show'); }
         fireMarkers(cur.timeline[tIdx].t); applyFrame(); }
     }
     for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.8;

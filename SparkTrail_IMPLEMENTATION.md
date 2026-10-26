@@ -1,256 +1,231 @@
-# SparkTrail — Implementation Specification
+# SparkTrail — TVA Design System & UI Spec
 
-**What this is:** a build spec for SparkTrail, a *simulation* where a user picks tampering actions against a modelled EV charger / microgrid, runs it, and sees the physical damage that results — what overheated or overloaded, how bad, and how long it took.
+The whole simulation is styled as a **Time Variance Authority field terminal**: a 1970s government agency that processes time, running cosmic tech on worn analog hardware. Cool, glossy, "modern dashboard" is wrong. Warm, tactile, bureaucratic, amber-lit is right.
 
-**What this is not:** a real attack tool. Nothing here touches a real charger, backend, or vehicle. Every "attack" is a value changed inside a software model so the user can *see the physical consequence*. How a real attacker would gain access to a link is deliberately out of scope.
+This spec pairs with `SparkTrail_IMPLEMENTATION.md` (the functional 3-step flow). That file says *what the app does*; this file says *what every pixel looks like*. Read them together.
 
----
-
-## 0. The user flow (the whole product in three steps)
-
-```
-STEP 1  Choose attack commands        →  e.g. "set charging limit to 250 A"
-STEP 2  Override features / sensors    →  e.g. "force pack-temp sensor to read 30 °C"
-STEP 3  Run → see the damage report    →  what broke, how bad, how long it took
-```
-
-A clarification worth keeping in your head: **Step 1 and Step 2 are the same mechanism** — injecting a wrong value somewhere in the model. Step 1 changes a *command* the system obeys; Step 2 changes a *reading* the system trusts. The UI presents them as two pickers because that's intuitive, but internally both produce the same kind of `Injection` object (§3).
+**Framing stays the same:** nothing touches real hardware. "Attacks" are values injected into a model. The TVA skin reframes that flow as case work — pick a tampering action, file it, watch the damage logged — but the engine underneath is unchanged.
 
 ---
 
-## 1. STEP 1 — Choose attack commands
+## 1. Design tokens (use these exact values)
 
-The user first picks a **target** (which charger / microgrid), then adds one or more **command injections** — values the system will be forced to obey.
+### 1.1 Colour
 
-### 1.1 Targets the user can pick
+```css
+:root{
+  /* surfaces — warm, faded, never pure */
+  --paper:      #D6BF96;   /* main background, manila */
+  --paper-2:    #C4A878;   /* panel fill */
+  --walnut:     #2B1E12;   /* header/footer bars, deep panels */
+  --brown:      #3A2A1A;   /* primary text on paper */
+  --brown-2:    #5C4226;   /* metal casing */
 
-| Target | Power | Why pick it | Priority |
+  /* amber — the signature "powered / active" glow */
+  --amber:      #F0A836;
+  --amber-hi:   #FFCE6E;   /* highlights, active lamps */
+  --orange:     #D67828;   /* drop-shadows, warnings */
+
+  /* accents — use sparingly */
+  --olive:      #787842;   /* secondary state */
+  --teal:       #467874;   /* rare cool accent */
+  --cream:      #F0E4CA;   /* text on dark bars */
+
+  /* status */
+  --danger:     #B03428;   /* stamps, ALERT, damaged */
+  --ok:         #787842;
+}
+```
+
+Rules:
+- **70% warm neutral, 20% walnut/brown structure, 10% amber accent.** Amber is a spotlight, not a fill.
+- Nothing is `#000` or `#fff`. Darkest is `--walnut`, lightest is `--cream`.
+- Danger red appears **only** on stamps and ALERT states.
+
+### 1.2 Type
+
+| Role | Font | Fallback stack | Notes |
 |---|---|---|---|
-| **DC fast charger (50–150 kW)** | 50–150 kW | richest thermal risk, clearest demo | **P0** |
-| **DC ultra-fast / HPC (150–350 kW)** | 150–350 kW | liquid-cooled, high stakes | P1 |
-| **AC Level 2 (7–22 kW)** | 7–22 kW | common home/workplace unit | P1 |
-| **Bidirectional / V2G charger** | 11–50 kW | can push power back to grid | P1 |
-| **Single-feeder charging hub (N chargers + 1 transformer)** | site | shows grid-level overload | **P0** |
-| **Islanded microgrid (PV + battery + diesel)** | site | frequency/voltage effects | P1 |
+| **Display / wordmarks** | Bahnschrift (condensed) or Oswald | `"Bahnschrift","Oswald","Arial Narrow",sans-serif` | heavy, condensed, all-caps, tight tracking |
+| **Headers / labels** | Bahnschrift SemiBold | same | all-caps, `letter-spacing: .08em` |
+| **Readouts / data / CRT** | IBM Plex Mono or Consolas | `"IBM Plex Mono","Consolas",monospace` | all numbers, logs, form fields |
+| **Body (rare)** | IBM Plex Mono | monospace | keep body text short; this UI is labels + data |
 
-### 1.2 Command injections the user can choose
+> Everything reads as **stamped, printed, or computed** — no soft modern geometric sans for data. Mono carries the "machine" feel.
 
-Each is a control value the system will accept and act on.
+Type scale (px): display 64/48, H1 34, H2 24, label 15 (caps), data 15–18 mono, caption 12.
 
-| Command | Field changed | Example value | Hits which target |
-|---|---|---|---|
-| **Raise charging current limit** | `charging_profile.limit_A` | 125 → **250 A** | any charger |
-| **Raise charging power setpoint** | `charging_profile.power_kW` | 20 → **60 kW** | any charger |
-| **Disable charge derating** | `control.derate_enabled` | on → **off** | any charger |
-| **Disable active cooling** | `control.cooling_enabled` | on → **off** | DC / HPC |
-| **Mass max-power command** | `hub.broadcast_power_kW` | → **max on all N** | hub |
-| **Suppress load-shed signal** | `hub.load_shed` | sent → **dropped** | hub |
-| **Shift inverter frequency setpoint** | `inverter.freq_setpoint_Hz` | 50.0 → **50.5 Hz** | microgrid |
-| **Shift inverter voltage setpoint** | `inverter.voltage_setpoint_pu` | 1.00 → **1.06 pu** | microgrid |
+### 1.3 Shape, texture, depth
 
-Each selection becomes an `Injection` with `kind: command`.
+- **Corners:** panels `border-radius: 6–10px`; screens `12–16px`. Nothing fully sharp, nothing pill-round except lamps.
+- **Borders:** 2–4px, `--amber` or `--brown-2`. Double-line borders (outer + thin inner) for official plaques.
+- **No flat fills.** Every surface gets: a subtle paper-grain noise overlay (`opacity .05`), a soft inner vignette, and warm drop shadows (`0 4px 0 rgba(0,0,0,.25)`, hard not blurry — like printed ink).
+- **NO accent stripes or thin edge bars** — use plaques, stamps and seals to set things apart instead.
 
 ---
 
-## 2. STEP 2 — Override features / sensors
+## 2. Global chrome (every screen)
 
-Now the user can tamper with what the system *sees or assumes*, so the attack from Step 1 goes unnoticed. These are what make a command dangerous.
-
-| Override | Field changed | Example | Effect |
-|---|---|---|---|
-| **Spoof pack-temperature sensor** | `sensor.pack_temp_C` | hold at **30 °C** | BMS thinks it's cool, never derates or cools |
-| **Spoof current sensor** | `sensor.current_A` | report low | hides the overcurrent from logs |
-| **Spoof voltage reading** | `sensor.voltage_pu` | hold at 1.00 | hides a sag or swell |
-| **Spoof State-of-Charge** | `sensor.soc_pct` | hold mid-range | hides an over/undercharge |
-| **Freeze a stale "OK" state (replay)** | `sensor.status` | replay "normal" | safety logic stays idle |
-| **Shift ambient assumption** | `env.ambient_C` | 25 → 45 | model runs hotter |
-| **Disable a safety interlock flag** | `safety.interlock_enabled` | on → off | removes the hardware cut-off from the model |
-
-Each selection becomes an `Injection` with `kind: sensor_spoof` (or `replay` / `flag`).
-
-> The pattern: **Step 1 pushes the system too hard; Step 2 blinds the part that would have stopped it.** The headline demo is "raise to 250 A" + "spoof temp to 30 °C" together.
+- **Top bar** (`--walnut`, 64px, amber underline): left = `TIME VARIANCE AUTHORITY`, right = live `CASE FILE  TVA-###` + clock. Mono.
+- **Indicator lamp row** under the top bar: 6 round amber lamps; lit ones glow (`box-shadow: 0 0 12px var(--amber-hi)`), reflecting live system state (sim running, alert raised, etc).
+- **Bottom bar:** left = `CHENNAI INSTITUTE OF TECHNOLOGY · CSBS`, right = `AMBIENT 35°C · T +MM:SS` sim clock.
+- **Agency seal** (the circular badge, §6) pinned top-right of the landing/title screen and on exported reports.
+- **Background:** `--paper` with faint 64px grid (subtract-blend, very low opacity) + grain + corner vignette.
 
 ---
 
-## 3. How a selection is represented
+## 3. Screen-by-screen (the 3-step flow, TVA-skinned)
 
-Both steps produce the same object, so the engine treats them uniformly:
+The functional flow is unchanged; only the metaphor and styling change.
 
-```yaml
-injection:
-  id: INJ-01
-  step: 1                      # 1 = command, 2 = feature/sensor (UI grouping only)
-  kind: command               # command | sensor_spoof | replay | flag
-  entry_point: cyber.backend_link   # which modelled link the value enters on
-  field: charging_profile.limit_A
-  to: 250                     # new value (or hold_value for a spoof)
-  start_s: 60                 # when it begins, in sim seconds
-```
+### 3.1 Landing — "Case Intake"
 
-A full run is just a list of these plus the chosen target. Example:
+- Full TVA title treatment (as the mockup): condensed `SPARKTRAIL` wordmark with an orange offset shadow, plaque subtitle `CYBER-TO-PHYSICAL IMPACT TRACING UNIT`, seal, CRT panel, stamp.
+- Primary action is a chunky labelled button, not a flat CTA: `[ OPEN NEW CASE FILE ]` — beveled, `--amber` face, `--walnut` text, hard shadow, presses down 2px on click.
 
-```yaml
-run:
-  target: charger_dcfast
-  ambient_C: 35
-  injections:
-    - { kind: command,     field: charging_profile.limit_A, to: 250, start_s: 60 }   # Step 1
-    - { kind: sensor_spoof, field: sensor.pack_temp_C,      hold: 30, start_s: 60 }   # Step 2
-  run_s: 2400
-```
+### 3.2 STEP 1 — "Requisition: Attack Commands"
 
----
+Styled as filling out a **requisition form**.
 
-## 4. STEP 3 — The damage report
+- Target picker = a row of **ID-card tiles** (charger / hub / microgrid). Each tile: paper card, mono spec block, a small photo-less schematic icon, a punch-hole graphic in the corner. Selected tile gets a red `SELECTED` ink stamp across it.
+- Command list = form rows with mono labels and physical-style inputs:
+  - toggles rendered as **real switches** (sliding knob, amber when on),
+  - numeric values as **segmented/Nixie-style readouts** (e.g. current limit `[2][5][0] A`) with up/down dials, not slider tracks.
+- Each chosen command drops a line into a running **"FORM 29-B"** panel on the right (mono, like carbon copy).
 
-When the user hits **Run**, the engine steps the simulation second-by-second and produces a report answering the user's three questions: **what broke, how bad, how long.**
+### 3.3 STEP 2 — "Override: Sensor & Feature Falsification"
 
-### 4.1 What the report shows
+Same form language, visually distinguished as the **"tampering"** page — slightly darker panel, a red `CLASSIFIED` corner tab.
 
-| Section | Contents |
-|---|---|
-| **Components damaged** | each affected part with a status: `ok` / `stressed` / `damaged`, and the peak value it reached |
-| **How bad** | peak temperature, peak current, transformer load %, voltage/frequency deviation vs a normal baseline |
-| **How long** | time from attack start to each threshold crossing (e.g. "reached 55 °C at 39:01"), and total time in the danger zone |
-| **Detected?** | whether the physics-aware monitor (§6) caught it, and after how long |
-| **Trace** | the hop-by-hop event list: forged command → control reaction → physical change → threshold crossing |
+- Sensor overrides as gauge faces the user can falsify: the gauge shows the *spoofed* reading in amber with a small red `FORGED` tag, and the *true* value hidden behind a flip.
+- Reinforce the concept in the UI copy: a one-line note under each override, e.g. *"BMS will trust this value."*
 
-### 4.2 Example report (250 A + temp spoof on a DC-fast charger)
+### 3.4 STEP 3 — "Case File: Damage Report"
 
-```
-COMPONENTS
-  Battery pack ....... DAMAGED    peak 55.4 °C   (normal 38.5 °C)
-  Charging cable ..... STRESSED   peak 71 °C
-  Hub transformer .... ok         38% load (single charger)
+The payoff screen, styled as a **stamped case file**.
 
-HOW LONG
-  crossed 45 °C  at  14:40
-  crossed 55 °C  at  39:01
-  time in danger zone (>45 °C):  25 min
-
-DETECTION
-  physics-aware monitor ALERTED at 03:59  (spoof caught ~3 min in)
-
-IMPACT SCORE  8.4 / 10   (fast onset, pack damage, delayed detection)
-```
-
-For the hub target, the same report instead shows the transformer at **174% load** and **8.7% voltage drop** when all 12 chargers are commanded to max.
-
-### 4.3 Impact score
-
-A single number so the user can compare attacks:
-
-```
-score = w1·(peak deviation)  +  w2·(1 / time-to-impact)  +  w3·(# components damaged)  +  w4·(detection delay)
-```
-
-Faster onset, more components, later detection → higher score. This is what fulfils "rank attacks by physical impact."
+- **Run button:** `[ ▸ EXECUTE TEMPORAL EVENT ]`, big amber, with a mechanical press + a short lamp-sweep animation while the sim steps.
+- **Components damaged:** a table of ID-card rows; each component gets an ink status stamp — green `CLEARED`, amber `STRESSED`, red `DAMAGED` — rotated a few degrees like a real stamp.
+- **How bad / how long:** large Nixie-style readouts for peak temp, load %, and time-to-threshold (`39:01`).
+- **Detection:** a CRT panel replaying the trace log line by line (amber phosphor, scanlines, ALERT in red).
+- **Impact score:** a big dial/meter, 0–10, needle swinging to the value, with a `VARIANT LOGGED` stamp slapping down on completion.
+- **Export:** `[ FILE REPORT ]` → a PDF/PNG laid out as an official TVA case document.
 
 ---
 
-## 5. Physics models (what turns an injection into damage)
+## 4. The 3D scene (TVA-skinned)
 
-Keep each model in its own module; the user never edits these, the engine runs them.
+The scene is the centrepiece: the attack visibly travels from a network node to a component that physically fails, on a retro-terminal diorama.
 
-**Battery / pack thermal** (P0):
-```
-dT/dt = ( I²·R  −  h·(T − T_ambient) ) / C
-```
-- `I` from control logic (driven by the possibly-spoofed readings), `R` internal resistance, `h` cooling (raised only when *reported* temp is high), `C` heat capacity.
+### 4.1 Look
 
-**Cable / converter thermal:** same I²R form, own `R` and cooling.
+- **Environment:** a dark walnut "control room" void with a warm amber key light and a faint grid floor. Not space, not neon — a lamp-lit workshop.
+- **Nodes as analog devices**, low-poly, metal-and-amber:
+  - backend = a server rack / reel-to-reel cabinet,
+  - charger = a chunky pillar with a CRT face and lamps,
+  - battery/EV = a ribbed pack that can glow with heat,
+  - transformer = a finned metal box with a gauge,
+  - microgrid bus = a ring console.
+- **Materials:** brushed metal (low metalness, mid roughness), enamel paint, wood veneer accents, amber-emissive screens and lamps. No chrome, no glass, no iridescence.
 
-**Hub transformer / feeder:**
-```
-load_pct   = 100 · P_total / S_rated
-v_drop_pct = 100 · Z · P_total / S_rated
-```
+### 4.2 Showing the attack and the damage
 
-**Microgrid frequency (islanded):**
-```
-df/dt = ( P_gen − P_load ) / (2·H·S_base)
-```
+- **Injection pulse:** an amber energy bead travels along a tube/cable from entry node to target, ~1–2 s per hop, easing. A faint afterglow trail marks the path already taken (the "spark trail").
+- **Heat:** map `pack_temp_C` to an emissive ramp on the battery mesh — `--teal`→`--amber`→`--danger` — plus rising heat-shimmer and a lamp on the unit going from green to red.
+- **Overload:** transformer box pulses red, its gauge needle pegs, a buzzing vignette.
+- **Trace tie-in:** each 3D event flashes the matching line in the side CRT log, and the timeline scrubber marker.
 
-Later: swap these for **PyBaMM** (battery), **pandapower** (grid) behind the same interface.
+### 4.3 Camera & motion
 
----
+- Default: slow 15° orbit. Click a node to dolly-focus. Scrubbing the timeline replays pulses and heat.
+- All motion eased, slightly mechanical (a tiny overshoot/settle), never springy-modern.
 
-## 6. The one piece of defense: physics-aware monitor
+### 4.4 Tech
 
-Runs a **second, independent** thermal model off the *measured current* and compares it to the *reported* temperature. If they diverge by more than a threshold (e.g. 3 °C), it raises an alert in the trace. It only alerts — it never blocks.
-
-> Keep its `R/C/h` different from the plant's, or the detection time is fake. Report the delay honestly.
-
----
-
-## 7. 3D simulation & visualization
-
-An elegant 3D scene where the chosen attack visibly travels from a network node to a glowing-hot component, synced to the damage timeline.
-
-**Stack:** Three.js + React Three Fiber (browser) with a Python/FastAPI backend streaming events over WebSocket. (PyVista if you want pure-Python offline.)
-
-**Scene:**
-- **Nodes as low-poly 3D objects:** backend (server), charger (pillar), battery (pack), transformer (box), microgrid bus (ring).
-- **Links as tubes;** an injection is an emissive pulse travelling from its entry point to the target.
-- **Damage as colour:** `pack_temp` → blue→amber→red ramp on the battery mesh; transformer overload pulses red; voltage drop dims the bus ring.
-- **Timeline scrubber** bound to sim time; drag to replay. Side panel shows the live trace and the damage report building up.
-
-**Polish rules:** one accent colour for "attack", one ramp for "heat", one for "electrical stress" — no more than three. Ease all motion. Pulses travel ~1–2 s per hop. Dark scene, high-contrast labels.
+- **Three.js + React Three Fiber.** Post-processing: mild bloom on emissives only, subtle film-grain + scanline pass, slight chromatic aberration at the edges (sells the CRT/vintage feel). Keep bloom low or the warm palette turns to mud.
+- Models: low-poly GLTF; bake the worn-metal look into textures. Reuse one material library across nodes for consistency.
 
 ---
 
-## 8. Software architecture
+## 5. Motion & sound (optional but on-theme)
 
-```
-sparktrail/
-├── core/
-│   ├── events.py        # Event dataclass, store, DiGraph builder (the trace)
-│   ├── clock.py         # fixed-step loop (dt = 1 s)
-│   └── run.py           # loads a run (target + injections) → objects
-├── targets/
-│   ├── base.py          # Target interface (read / apply_command / step / true_state)
-│   ├── charger_dcfast.py   # P0
-│   ├── hub_feeder.py       # P0
-│   └── ...
-├── physics/             # battery_thermal, feeder, swing
-├── control/             # bms (reads sensors), hub_controller
-├── injections/
-│   ├── schema.py        # the §3 Injection object + validation
-│   └── engine.py        # applies injections to the right link at the right time
-├── monitor/physics_aware.py
-├── report/
-│   ├── damage.py        # builds the Step-3 report from the trace
-│   └── scoring.py       # impact score
-├── api/server.py        # FastAPI: run + stream events
-├── viz3d/               # React Three Fiber front-end (pickers + scene + report)
-└── runs/                # saved YAML runs, incl. the headline demo
-```
+- UI transitions: pages slide like paper being pulled; stamps **slam** down (scale 1.2→1 + small rotate + dust puff).
+- Lamps flicker on boot. CRT text types in character by character.
+- Optional audio: relay clicks, a soft 60Hz hum, a stamp thunk, an alarm buzz on ALERT. Ship muted with a toggle.
 
-**Target interface** (keeps sensor-spoof meaningful — `true_state` is never shown to control or monitor):
-```python
-class Target(Protocol):
-    def read(self) -> dict: ...            # readings (an injection may have altered these)
-    def apply_command(self, field, value) -> None: ...
-    def step(self, dt: float) -> list[Event]: ...
-    def true_state(self) -> dict: ...      # ground truth, hidden from control/monitor
+---
+
+## 6. The agency seal (reusable asset)
+
+Round badge, used on landing + exported reports:
+- Outer brass ring + 60 tick marks (every 5th longer).
+- Ring text: `★ TIME VARIANCE AUTHORITY ★` (top arc), `TEMPORAL INFRASTRUCTURE DIV` (bottom arc), mono, cream.
+- Inner dark disc with an amber **lightning-bolt + concentric radiating arcs** (the spark-on-a-timeline motif).
+- Build as SVG so it scales; animate the arcs faintly when the sim runs.
+
+---
+
+## 7. Component cheat-sheet (CSS sketch)
+
+```css
+.tva-panel{
+  background: var(--paper-2);
+  border: 3px solid var(--brown-2);
+  border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.28), inset 0 0 60px rgba(60,40,20,.25);
+  position: relative;
+}
+.tva-panel::after{ /* grain */
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  background:url(noise.png); opacity:.05; mix-blend-mode:multiply; pointer-events:none;
+}
+.tva-plaque{
+  background: var(--walnut); color: var(--amber-hi);
+  font: 600 15px/1 "IBM Plex Mono",monospace; letter-spacing:.1em;
+  text-transform:uppercase; padding:14px 20px; border-radius:6px;
+}
+.tva-btn{
+  background: var(--amber); color: var(--walnut);
+  border:none; border-radius:6px; box-shadow:0 4px 0 var(--orange);
+  font:700 16px "Bahnschrift","Oswald",sans-serif; letter-spacing:.08em;
+  text-transform:uppercase; padding:14px 26px; cursor:pointer;
+}
+.tva-btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--orange); }
+.crt{
+  background:#120C06; border:14px solid var(--brown-2); border-radius:14px;
+  color: var(--amber-hi); font:15px/1.5 "IBM Plex Mono",monospace;
+  text-shadow:0 0 6px rgba(255,170,60,.5); padding:20px; position:relative; overflow:hidden;
+}
+.crt::after{ /* scanlines */
+  content:""; position:absolute; inset:0;
+  background:repeating-linear-gradient(#0000 0 2px,#00000055 2px 3px); pointer-events:none;
+}
+.stamp{ color:var(--danger); border:6px double var(--danger); border-radius:8px;
+  font:700 28px "Bahnschrift",sans-serif; letter-spacing:.12em; text-transform:uppercase;
+  padding:8px 18px; transform:rotate(-8deg); opacity:.85; }
 ```
 
 ---
 
-## 9. Build order (always something runnable)
+## 8. Asset checklist
 
-- **Phase 1 — core + one chain.** Event store, clock, DC-fast charger + battery thermal, the two headline injections, a text damage report. *Demoable: the deck's numbers, reproducible.*
-- **Phase 2 — hub + scoring.** Add hub_feeder, mass-command, transformer load, impact score. *Demoable: "one command → 174%."*
-- **Phase 3 — monitor + report UI.** Physics-aware detector, full damage report. *Demoable: alert fires ~3 min in.*
-- **Phase 4 — 3D.** FastAPI stream + R3F scene with the two pickers, heat ramp, scrubber. *Demoable: the elegant visual.*
-- **Phase 5 — breadth.** More targets and injections (each a plugin/YAML); swap in PyBaMM / pandapower.
+- [ ] Agency seal — SVG (ring text, ticks, bolt, radiating arcs)
+- [ ] Paper-grain noise PNG (tileable, subtle)
+- [ ] Stamp set — `SELECTED`, `FORGED`, `CLASSIFIED`, `CLEARED`, `STRESSED`, `DAMAGED`, `VARIANT LOGGED`
+- [ ] Nixie / seven-segment digit sprites or a web font
+- [ ] Low-poly GLTF nodes — server, charger pillar, battery pack, transformer, bus console
+- [ ] Shared worn-metal / enamel / veneer PBR texture set
+- [ ] CRT + film-grain + scanline post FX shader
+- [ ] Lamp component (on/off + glow)
+- [ ] Fonts: Bahnschrift/Oswald (display) + IBM Plex Mono (data) — self-host; **embed in any exported PDF**
 
 ---
 
-## 10. Honest limits (keep in README + demo)
+## 9. Pitfalls (so it doesn't look like a theme pack)
 
-- Lumped single-temperature battery model; no cell-level detail.
-- Monitor shares the *form* of the plant model → optimistic detection time; real mismatch is slower.
-- Hardware thermal fuses only modelled if the user adds the `safety.interlock` override.
-- Steady-state grid math until pandapower is wired in.
-- Injection = "a wrong value on a link"; gaining that access in reality is out of scope by design.
+- **Don't drown it in brown.** The amber accent and the cream text are what keep it legible; a wall of mud reads as a mistake, not a style.
+- **Don't mix in cool blues or neon.** One stray neon gradient breaks the whole 1970s illusion.
+- **Keep text short.** This UI is labels, stamps and readouts. Long paragraphs fight the aesthetic — push narrative into the CRT log or a separate case document.
+- **Readability first on the data.** The temperature chart and the damage numbers must stay crisp amber-on-dark; decorate *around* them, never *over* them.
+- **Performance:** bloom + grain + scanline passes are cheap individually but stack up. Budget them, test on a mid laptop (demo machine), and give a "reduce effects" toggle.
+```
