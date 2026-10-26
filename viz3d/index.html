@@ -409,30 +409,74 @@ function makeTransformer(name,pos,focus){
   return nodes[name];
 }
 
-// EV charger (ref: Ather wall-box, SINO/EV-FAST pedestals)
-const BEIGE=0xd0bd94;
+// EV charger. Pedestals follow the modern DC-fast silhouette (ref image):
+// rounded cream body on a stone slab, big front screen with a green charge bar,
+// signature curved edge light-strip (amber, not blue — TVA), metal centre trim,
+// RFID pad, holstered connector on a coiled cable. AC types stay a wall-box.
+const BEIGE=0xe4d9bd;
 function makeCharger(name,kind,pos,focus){
   const g=new THREE.Group();
-  const bodyMat=new THREE.MeshStandardMaterial({color:BEIGE,emissive:0x000000,emissiveIntensity:0,roughness:0.55,metalness:0.15});
+  const bodyMat=new THREE.MeshStandardMaterial({color:BEIGE,emissive:0x000000,emissiveIntensity:0,roughness:0.45,metalness:0.2});
   const ac=kind.includes('AC Level'), hpc=kind.includes('HPC')||kind.includes('ultra');
   const buf=kind.includes('Buffered'), v2g=kind.includes('V2G');
-  let w=0.75,d=0.6,h=2.0;
-  if(ac){ w=0.7;d=0.32;h=1.15; } else if(hpc){ w=0.9;d=0.75;h=2.5; }
-  else if(buf){ w=1.0;d=0.9;h=1.9; } else if(v2g){ w=0.72;d=0.6;h=1.8; }
+  let w=0.85,d=0.62,h=2.1;
+  if(ac){ w=0.7;d=0.3;h=1.15; } else if(hpc){ w=0.95;d=0.75;h=2.6; }
+  else if(buf){ w=1.05;d=0.9;h=2.0; } else if(v2g){ w=0.82;d=0.62;h=1.95; }
   const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bodyMat); body.position.y=h/2; g.add(body);
-  if(!ac){ const base=new THREE.Mesh(new THREE.CylinderGeometry(w*0.7,w*0.8,0.22,20),metal(0x4a3620,0,0));
-    base.position.y=0.11; g.add(base); }
-  const fz=d/2+0.015;
-  const screen=new THREE.Mesh(new THREE.BoxGeometry(w*0.6,h*0.22,0.03),
-    new THREE.MeshStandardMaterial({color:0x0b0a06,emissive:0x16351f,emissiveIntensity:0.35}));
-  screen.position.set(0,h*0.72,fz); g.add(screen);
-  const led=new THREE.Mesh(new THREE.BoxGeometry(w*0.11,h*0.34,0.02),new THREE.MeshBasicMaterial({color:0x33ff66}));
-  led.position.set(0,h*0.40,fz); g.add(led);
-  const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.2,10),metal(0x0b0a06,0,0));
-  hol.position.set(w*0.5,h*0.55,d*0.1); g.add(hol);
-  if(hpc){ for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),metal(0x7a6a45));
-    f.position.set(0,h*(0.5+i*0.09),-d*0.2);g.add(f);} }
-  addLabel(g,name,h+0.55);
+  const fz=d/2+0.02;
+
+  if(ac){
+    // compact wall-box: screen + status strip + stubby holster
+    const scr=new THREE.Mesh(new THREE.BoxGeometry(w*0.6,h*0.3,0.03),
+      new THREE.MeshStandardMaterial({color:0x0b0a06,emissive:0x16351f,emissiveIntensity:0.35}));
+    scr.position.set(0,h*0.62,fz); g.add(scr);
+    var led=new THREE.Mesh(new THREE.BoxGeometry(w*0.1,h*0.4,0.02),new THREE.MeshBasicMaterial({color:0x33ff66}));
+    led.position.set(0,h*0.4,fz); g.add(led);
+    const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.18,10),metal(0x0b0a06,0,0));
+    hol.position.set(w*0.5,h*0.5,d*0.1); g.add(hol);
+  } else {
+    // rounded top cap (dome) — approximates the pillow silhouette
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(w*0.5,24,12,0,Math.PI*2,0,Math.PI/2),bodyMat);
+    cap.scale.set(1,0.6,d/w); cap.position.set(0,h,0); g.add(cap);
+    // stone base slab
+    const base=new THREE.Mesh(new THREE.BoxGeometry(w*1.7,0.2,d*1.9),
+      new THREE.MeshStandardMaterial({color:0xb9b1a0,roughness:0.9,metalness:0.05}));
+    base.position.y=0.1; g.add(base);
+    // metal centre trim band
+    const trim=new THREE.Mesh(new THREE.BoxGeometry(w*0.16,h*0.9,0.03),metal(0x9a8f78,0,0,0.5));
+    trim.position.set(-w*0.04,h*0.5,fz); g.add(trim);
+    // big dark front screen + green charge bar + charge meter
+    const screen=new THREE.Mesh(new THREE.BoxGeometry(w*0.52,h*0.3,0.03),
+      new THREE.MeshStandardMaterial({color:0x080a0c,emissive:0x0a1a12,emissiveIntensity:0.4}));
+    screen.position.set(-w*0.14,h*0.74,fz); g.add(screen);
+    const batt=new THREE.Mesh(new THREE.BoxGeometry(w*0.34,h*0.08,0.01),new THREE.MeshBasicMaterial({color:0x33ff7a}));
+    batt.position.set(-w*0.14,h*0.78,fz+0.02); g.add(batt);
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(w*0.34,h*0.03,0.01),new THREE.MeshBasicMaterial({color:0x2a9a52}));
+    bar.position.set(-w*0.14,h*0.69,fz+0.02); g.add(bar);
+    // RFID / tap pad below the screen
+    const pad=new THREE.Mesh(new THREE.BoxGeometry(w*0.14,w*0.14,0.02),metal(0x2a2622,0,0));
+    pad.position.set(-w*0.14,h*0.52,fz); g.add(pad);
+    // SIGNATURE curved edge light-strip down the right side (amber; heat readout)
+    led=new THREE.Mesh(new THREE.BoxGeometry(0.05,h*0.78,0.05),
+      new THREE.MeshBasicMaterial({color:0x33ff66}));
+    led.position.set(w*0.46,h*0.52,fz-0.04); g.add(led);
+    const ledTop=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,w*0.4,8),led.material);
+    ledTop.rotation.z=Math.PI/2; ledTop.position.set(w*0.27,h*0.9,fz-0.04); g.add(ledTop);
+    // holstered connector + coiled cable on the right
+    const holster=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.2,0.14),metal(0x14110a,0,0));
+    holster.position.set(w*0.5+0.02,h*0.58,0); g.add(holster);
+    const coil=new THREE.Mesh(new THREE.TorusGeometry(w*0.26,0.035,10,24),
+      new THREE.MeshStandardMaterial({color:0x14110a,roughness:0.7}));
+    coil.position.set(w*0.62,h*0.4,d*0.1); coil.rotation.y=Math.PI/2; g.add(coil);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.22,12),
+      new THREE.MeshStandardMaterial({color:0xcfc6b4,roughness:0.5,metalness:0.3}));
+    grip.position.set(w*0.5,h*0.3,d*0.32); grip.rotation.x=Math.PI/2.4; g.add(grip);
+    const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,0.1,10),metal(0x0b0a06,0,0));
+    plug.position.set(w*0.5,h*0.22,d*0.45); plug.rotation.x=Math.PI/2.4; g.add(plug);
+    if(hpc){ for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),metal(0x7a6a45));
+      f.position.set(0,h*(0.42+i*0.1),-d*0.22);g.add(f);} }
+  }
+  addLabel(g,name,h+0.5);
   g.position.copy(pos); scene3d.add(g); tag(g,name);
   nodes[name]={group:g,mesh:body,mat:bodyMat,led,pos:pos.clone(),focus:focus||9,base:BEIGE};
   return nodes[name];
