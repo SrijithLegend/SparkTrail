@@ -1,0 +1,28 @@
+name: DC-fast overcurrent, temperature spoofed
+ambient_C: 35
+dt_s: 1.0
+run_s: 2400
+target:
+  type: charger_dcfast
+  pack:   { C: 450000, R: 0.10, cool_low: 150, cool_high: 300 }
+  limits: { normal_A: 125, max_A: 250 }
+hub:
+  type: hub_feeder
+  chargers: 1
+  transformer_kVA: 500
+  impedance_pu: 0.05
+attacks:
+  - id: A-OVERCURRENT
+    entry_point: cyber.backend_link
+    mechanism: command_override
+    field: charging_profile.limit_A
+    to: 250
+    start_s: 60
+  - id: A-TEMPSPOOF
+    entry_point: cyber.sensor_bus
+    mechanism: sensor_spoof
+    field: sensor.pack_temp_C
+    hold_value: 30
+    start_s: 60
+monitor:
+  physics_aware: { divergence_C: 3, model: { C: 430000, R: 0.11 } }
