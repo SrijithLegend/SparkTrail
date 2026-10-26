@@ -256,7 +256,8 @@ function pick(e){
   const hit=raycaster.intersectObjects(Object.values(nodeMeshes).map(n=>n.group),true)[0];
   if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o){ const n=nodeMeshes[o.userData.node]; orb.tgt.copy(n.pos); orb.tr=8.5; } }
 }
-function resetView(){ orb.tgt.set(2,0,0); orb.tr=22; }
+let sceneC=new THREE.Vector3(2,0,0), sceneR=26;
+function resetView(){ orb.tgt.copy(sceneC); orb.tr=sceneR; }
 function updateCam(dt){ orb.idle+=dt; if(!orb.drag&&orb.idle>4) orb.az+=dt*0.04;
   orb.pivot.lerp(orb.tgt,Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
   const r=orb.r,el=orb.el,p=orb.pivot;
@@ -282,7 +283,7 @@ function clearScene(){ Object.values(nodeMeshes).forEach(n=>scene3d.remove(n.gro
   nodeMeshes={};tubes=[];pulses=[]; }
 function buildScene(){
   clearScene();
-  const S=0.9;
+  const S=1.9;   // position scale — spread nodes so billboards don't overlap
   DOM.nodes.forEach(n=>{
     const g=new THREE.Group();
     let tintMat, labelY=1.5, img=NODE_IMG[n.id];
@@ -290,10 +291,10 @@ function buildScene(){
       // high-res TVA render as a camera-facing billboard (preserves quality);
       // a slightly larger backing sprite is the depth-coloured frame/glow.
       const back=new THREE.Sprite(new THREE.SpriteMaterial({color:0x5c4226,depthWrite:false}));
-      back.scale.set(4.0,2.35,1); back.renderOrder=1; g.add(back);
+      back.scale.set(3.35,1.98,1); back.renderOrder=1; g.add(back);
       const tex=texLoader.load(img); tex.encoding=THREE.sRGBEncoding;
       const bill=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthWrite:false}));
-      bill.scale.set(3.75,2.1,1); bill.renderOrder=2; g.add(bill);
+      bill.scale.set(3.1,1.74,1); bill.renderOrder=2; g.add(bill);
       tintMat=back.material; labelY=1.55;
     } else {
       const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:0.3,roughness:0.55,metalness:0.3});
@@ -309,6 +310,11 @@ function buildScene(){
     const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x5c4226,emissiveIntensity:0.3});
     const mesh=new THREE.Mesh(geo,mat); scene3d.add(mesh);
     tubes.push({mesh,mat,a:pa.clone(),b:pb.clone(),base:new THREE.Color(0x5c4226),glow:0}); });
+  // fit the camera to the actual node bounds so the whole rig is framed
+  const xs=Object.values(nodeMeshes).map(n=>n.pos.x), zs=Object.values(nodeMeshes).map(n=>n.pos.z);
+  sceneC.set((Math.min(...xs)+Math.max(...xs))/2, 0, (Math.min(...zs)+Math.max(...zs))/2);
+  sceneR=Math.max(18, Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...zs)-Math.min(...zs))*0.95 + 10);
+  orb.pivot.copy(sceneC); orb.r=sceneR;
   resetView();
 }
 const DCOL=d=>d===0?0xB03428:d===1?0xD67828:d===2?0xF0A836:0x6b5225;
