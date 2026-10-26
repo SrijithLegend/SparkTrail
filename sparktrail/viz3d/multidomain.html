@@ -1,0 +1,694 @@
+<title>SparkTrail · Multi-Domain</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* SparkTrail multi-domain — TVA field terminal, generalized to any domain.
+   Reuses the TVA tokens; the 3D scene + meters are driven by viz3d/scenes/*.json. */
+:root{
+  --paper:#D6BF96;--paper-2:#C4A878;--walnut:#2B1E12;--brown:#3A2A1A;--brown-2:#5C4226;
+  --amber:#F0A836;--amber-hi:#FFCE6E;--orange:#D67828;--olive:#787842;--teal:#467874;
+  --cream:#F0E4CA;--danger:#B03428;
+  --disp:"Oswald","Arial Narrow",sans-serif;--mono:"IBM Plex Mono","Consolas",monospace;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font-family:var(--mono);color:var(--brown);overflow:hidden;background:var(--paper)}
+canvas{display:block;position:fixed;inset:0}
+h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;margin:0}
+#paperfx{position:fixed;inset:0;z-index:48;pointer-events:none;opacity:0;mix-blend-mode:normal;background:none}
+#vig{position:fixed;inset:0;z-index:48;pointer-events:none;box-shadow:inset 0 0 220px rgba(43,30,18,.55)}
+.hud{position:fixed;z-index:5}
+
+#topbar{top:0;left:0;right:0;height:54px;background:var(--walnut);color:var(--cream);border-bottom:3px solid var(--amber);
+  display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+#topbar .wm{font-family:var(--disp);font-size:19px;letter-spacing:.14em;color:var(--amber-hi)}
+#topbar .sp{flex:1}#topbar .cf{font-size:13px}#topbar .clk{font-size:15px;color:var(--amber-hi);min-width:70px;text-align:right}
+#lamps{top:54px;left:0;right:0;height:26px;background:#20160c;display:flex;align-items:center;gap:16px;padding:0 18px;
+  z-index:19;border-bottom:1px solid #4a3318}
+.lamp{display:flex;align-items:center;gap:6px;font:11px var(--mono);color:#8a714a;letter-spacing:.1em}
+.lamp i{width:10px;height:10px;border-radius:50%;background:#3a2a16;border:1px solid #000}
+.lamp.on{color:var(--amber-hi)}.lamp.on i{background:var(--amber-hi);box-shadow:0 0 12px var(--amber-hi)}
+.lamp.bad.on i{background:var(--danger);box-shadow:0 0 12px var(--danger)}.lamp.bad.on{color:#e88}
+#bottombar{bottom:0;left:0;right:0;height:28px;background:var(--walnut);color:var(--cream);display:flex;
+  align-items:center;justify-content:space-between;padding:0 16px;font:12px var(--mono);letter-spacing:.05em;z-index:20}
+
+.panel{background:var(--paper-2);border:3px solid var(--brown-2);border-radius:8px;position:relative;
+  box-shadow:0 4px 0 rgba(0,0,0,.28),inset 0 0 60px rgba(60,40,20,.25)}
+.plaque{background:var(--walnut);color:var(--amber-hi);font:600 13px/1 var(--mono);letter-spacing:.12em;
+  text-transform:uppercase;padding:9px 12px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between}
+.sub{font:600 11px var(--mono);letter-spacing:.12em;color:var(--brown);text-transform:uppercase;opacity:.8;margin-top:4px}
+
+/* left: domain intake + manipulation menu */
+#left{position:fixed;top:92px;left:12px;width:286px;max-height:calc(100% - 140px);display:flex;flex-direction:column;overflow:hidden}
+#left .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--paper);border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px;cursor:pointer;
+  position:relative;transition:transform .08s}
+.card:hover{transform:translateX(2px);border-color:var(--amber)}
+.card.sel{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.card .nm{font-family:var(--disp);font-size:14px;color:var(--brown)}
+.card .meta{font:11px var(--mono);color:var(--brown-2);margin-top:1px}
+.tag{display:inline-block;font:10px var(--mono);letter-spacing:.04em;background:var(--walnut);color:var(--amber-hi);
+  border-radius:3px;padding:1px 5px;margin-top:3px}
+.card.sel .seltag{position:absolute;right:6px;top:6px;color:var(--danger);font:700 10px var(--disp);
+  border:2px solid var(--danger);border-radius:4px;padding:0 4px;transform:rotate(-7deg)}
+
+/* right: case file */
+#right{position:fixed;top:92px;right:12px;width:308px;max-height:calc(100% - 140px);display:flex;flex-direction:column;overflow:hidden}
+#right .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:9px}
+.meter{background:#140f07;border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px}
+.meter .k{font:10px var(--mono);letter-spacing:.09em;color:#9a7a44;text-transform:uppercase;display:flex;justify-content:space-between}
+.meter .v{font:22px var(--mono);color:var(--amber-hi);text-shadow:0 0 8px rgba(240,168,54,.5);font-variant-numeric:tabular-nums;margin-top:2px}
+.meter .v small{font-size:12px;color:#9a7a44}
+.meter.breach .v{color:#ff8a6a;text-shadow:0 0 10px rgba(176,52,40,.7)}
+.bar{height:5px;border-radius:3px;background:#2a2010;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--olive),var(--amber))}
+.meter.breach .bar i{background:linear-gradient(90deg,var(--orange),var(--danger))}
+.cmp{font:11px var(--mono);color:var(--brown);display:flex;justify-content:space-between;padding:2px 0}
+.cmp b{color:var(--danger)} .cmp .ok{color:var(--olive)}
+.outcome{border:2px double var(--brown-2);border-radius:6px;padding:7px 9px;font:12px var(--mono);background:var(--paper)}
+.outcome.variance{border-color:var(--danger);color:var(--danger)}
+.outcome.contained{border-color:var(--olive);color:#4a5a1a}
+.foot{font:11px var(--mono);color:var(--brown-2);border-top:1px dashed var(--brown-2);padding-top:6px}
+.foot b{color:var(--brown)}
+
+/* dock */
+#dock{bottom:38px;left:0;right:0;display:flex;justify-content:center;z-index:10}
+.transport{display:flex;gap:8px;align-items:center;background:var(--walnut);border:2px solid var(--brown-2);
+  border-radius:10px;padding:8px 12px;box-shadow:0 4px 0 rgba(0,0,0,.3);flex-wrap:wrap;justify-content:center;max-width:94vw}
+.tva-btn{background:var(--amber);color:var(--walnut);border:none;border-radius:6px;box-shadow:0 4px 0 var(--orange);
+  font:700 15px var(--disp);letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;cursor:pointer}
+.tva-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--orange)}
+.ctl{background:var(--brown-2);color:var(--cream);border:1px solid #000;border-radius:5px;height:36px;min-width:36px;
+  padding:0 10px;font:13px var(--mono);cursor:pointer}
+.ctl.tog{background:var(--paper);color:var(--brown)}.ctl.tog.on{background:var(--olive);color:var(--cream)}
+input[type=range]{width:180px;accent-color:var(--amber)}
+.clk2{font:14px var(--mono);color:var(--amber-hi);min-width:52px;text-align:right}
+
+/* gallery modal */
+#gallery{position:fixed;inset:0;z-index:40;background:rgba(18,12,6,.9);display:none;overflow:auto;padding:70px 20px 30px}
+#gallery.show{display:block}
+#gallery .wrap{max-width:900px;margin:0 auto}
+#gallery h2{color:var(--amber-hi);font-size:26px;margin-bottom:4px}
+#gallery .lead{color:var(--cream);font:13px var(--mono);margin-bottom:16px;opacity:.85}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.gcard{background:var(--paper-2);border:2px solid var(--brown-2);border-radius:8px;padding:12px}
+.gcard.harm{border-color:var(--danger)}
+.gcard .d{font-family:var(--disp);font-size:16px;color:var(--brown)}
+.gcard .i{font:12px var(--mono);color:var(--danger);margin:2px 0 6px}
+.gcard .c{font:12px var(--mono);color:var(--brown);line-height:1.4}
+.gcard .n{font:11px var(--mono);color:var(--brown-2);margin-top:6px;font-style:italic}
+.gclose{position:fixed;top:64px;right:24px;z-index:41}
+.through{color:var(--cream);font:13px var(--mono);margin-top:18px;border-top:1px dashed var(--brown-2);padding-top:12px;opacity:.9}
+.banner{position:fixed;inset:auto 0 70px 0;z-index:30;text-align:center;font:13px var(--mono);color:var(--danger)}
+@media(max-width:860px){#left,#right{position:fixed;width:auto;left:10px;right:10px;max-height:30%}
+  #left{top:90px}#right{top:auto;bottom:150px}}
+
+/* === TVA CRT simulation + TVA Tempad side-console skin === */
+:root{
+  --paper:#101810;--paper-2:#17251c;--walnut:#090d0b;--brown:#d6c7a1;--brown-2:#8a713f;
+  --amber:#f18a36;--amber-hi:#ffc16a;--orange:#d45b25;--olive:#657d50;--teal:#64a99b;
+  --cream:#e8e2c9;--danger:#ff5a42;
+  --disp:"Oswald","Arial Narrow",sans-serif;--mono:"IBM Plex Mono","Consolas",monospace;
+}
+html,body{background:#080d0b;color:#e8e2c9}
+body{
+ background:radial-gradient(ellipse at center,#1a2419 0%,#0a100d 58%,#030605 100%);
+}
+canvas{
+ z-index:1;
+ filter:contrast(1.08) saturate(.78);
+}
+#paperfx{
+ z-index:48;opacity:.12;mix-blend-mode:screen;
+ background:repeating-linear-gradient(0deg,rgba(255,177,81,.09) 0px,rgba(255,177,81,.09) 1px,transparent 1px,transparent 4px),
+            linear-gradient(90deg,rgba(255,177,81,.045) 1px,transparent 1px) 0 0/48px 48px;
+}
+#vig{z-index:49;box-shadow:inset 0 0 180px rgba(0,0,0,.82),inset 0 0 3px 2px rgba(241,138,54,.16)}
+#topbar{
+ background:linear-gradient(180deg,#171b15,#090d0b);color:var(--cream);
+ border-bottom:2px solid var(--amber);box-shadow:0 3px 18px #000;
+}
+#topbar .wm{font-size:20px;letter-spacing:.18em;color:var(--amber-hi);text-shadow:0 0 12px #d45b2566}
+#lamps{background:#080c09;border-bottom:1px solid #58411f;box-shadow:0 5px 14px #0008}
+.lamp{color:#7d8a6e}.lamp.on{color:var(--amber-hi)}
+.panel{
+ background:linear-gradient(145deg,rgba(19,31,23,.97),rgba(7,13,10,.97));
+ border:1px solid #8c6c35;border-radius:3px;
+ box-shadow:0 8px 24px #0009,inset 0 0 22px rgba(90,129,86,.08);
+ backdrop-filter:blur(9px);
+}
+.plaque{
+ background:linear-gradient(90deg,#28372a,#101a14);color:#ffb85c;
+ border-bottom:1px solid #b27a34;border-radius:0;
+ font:600 11px var(--mono);letter-spacing:.15em;padding:11px 12px;
+}
+#left,#right{max-height:calc(100% - 142px)}
+#left{width:278px;left:14px}
+#right{width:300px;right:14px}
+#left .body,#right .body{background:rgba(8,15,11,.84);gap:9px}
+.sub{color:#a6b69b;opacity:1;font-size:10px;letter-spacing:.14em}
+.card{
+ background:linear-gradient(110deg,#1c2b20,#101a14);color:#e8e2c9;
+ border:1px solid #425a40;border-radius:2px;padding:9px 10px;
+ box-shadow:inset 3px 0 0 #334b35;transition:background .12s,border-color .12s;
+}
+.card:hover{transform:none;border-color:#e5a24b;background:linear-gradient(110deg,#2b3826,#17221a)}
+.card.sel{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber),0 0 10px #f18a3622;background:#2a2a1d}
+.card .nm{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:#f1e6c7}
+.card .meta{color:#a8b39b;font-size:10px;line-height:1.5}
+.tag{background:#29382a;color:#ffc16a;border:1px solid #536d4a;border-radius:1px}
+.card.sel .seltag{color:#ffb85c;border-color:#ffb85c;border-radius:0}
+.meter{background:#050a07;border:1px solid #4e5e3c;border-radius:2px}
+.meter .k{color:#9caf88;font-size:9px}
+.meter .v{color:#ffc16a;text-shadow:0 0 9px #f18a3655;font-size:21px}
+.bar{background:#202b20;border-radius:0;height:4px}
+.bar i{background:linear-gradient(90deg,#6d965b,#ffb34f)}
+.meter.breach .v{color:#ff745b}
+.cmp{color:#b6c3a8;font-size:10px}
+.cmp b{color:#ff745b}.cmp .ok{color:#8fc69a}
+.outcome{background:#111b13;color:#d6e3c8;border:1px solid #6d8555;border-radius:2px;font-size:11px}
+.outcome.variance{background:#28120f;border-color:#ff5a42;color:#ff9a7e}
+.outcome.contained{background:#102219;border-color:#64a99b;color:#9be1b4}
+.foot{color:#a7b39a;border-color:#4d603e;font-size:10px;line-height:1.7}
+.foot b{color:#ffc16a}
+#dock{bottom:38px}
+.transport{
+ background:linear-gradient(180deg,#172219,#080d0a);border:1px solid #8c6c35;border-radius:3px;
+ box-shadow:0 8px 24px #000a;padding:7px 10px;
+}
+.tva-btn{
+ background:linear-gradient(180deg,#ffbd5c,#dc772b);color:#17120a;border:1px solid #ffcf7c;border-radius:2px;
+ box-shadow:0 3px 0 #7f3a1b;font:700 13px var(--mono);letter-spacing:.09em;
+}
+.ctl{background:#1b2a20;color:#e8e2c9;border:1px solid #4f6647;border-radius:2px;font:11px var(--mono)}
+.ctl.tog{background:#17241a;color:#c3d1b7}
+.ctl.tog.on{background:#526b42;color:#fff2ce;border-color:#a4b77b}
+input[type=range]{accent-color:#f18a36}
+.clk2{color:#ffc16a;font-size:12px}
+#bottombar{background:#080d0b;color:#91a183;border-top:1px solid #4c3a20;font-size:10px}
+#gallery{background:rgba(3,7,5,.96)}
+#gallery h2{color:#ffc16a}
+#gallery .lead{color:#c8d4bd}
+.gcard{background:#142019;border:1px solid #5a6c45;border-radius:2px}
+.gcard .d{color:#ffc16a;font-family:var(--mono);font-size:13px}
+.gcard .i{color:#ff8264}.gcard .c,.gcard .n{color:#d0d9c6}
+.through{color:#d0d9c6;border-color:#536344}
+.banner{color:#ff8264;background:#100a08;padding:8px}
+@media(max-width:860px){
+ #left,#right{width:auto;max-height:28%}
+ #left{left:10px;right:10px}
+ #right{left:10px;right:10px;bottom:144px}
+}
+
+
+/* === TVA Tempad consoles + curved CRT housing === */
+#left,#right{
+ background:linear-gradient(145deg,#293529 0%,#121a13 62%,#090e0b 100%);
+ border:2px solid #92713b;border-radius:3px;
+ box-shadow:0 0 0 3px #090d0a,0 10px 28px #000b,inset 0 0 24px #d18b2b12;
+}
+#left:before,#right:before{content:"";position:absolute;inset:5px;border:1px solid #c18b3d66;pointer-events:none;z-index:2}
+#left .plaque,#right .plaque{
+ position:relative;z-index:3;background:linear-gradient(90deg,#3b452d,#182218 68%,#101610);
+ border-bottom:1px solid #f4a344;color:#ffc66e;border-radius:0;
+ text-shadow:0 0 8px #f4a34444;
+}
+#left .body,#right .body{position:relative;z-index:1;background:#0b120dd9;color:#d9c79b}
+#left .sub,#right .sub{color:#c6b27c;opacity:1}
+#left .card{background:linear-gradient(110deg,#253226,#111b14);border:1px solid #536343;border-radius:2px;
+ color:#d9c79b;box-shadow:inset 0 0 0 1px #0a100b}
+#left .card .nm{color:#f0e3bf;font-family:var(--mono)}
+#left .card .meta{color:#b3b88c}
+#left .card.sel{border-color:#f4a344;box-shadow:inset 0 0 0 1px #f4a34455,0 0 12px #f4a34420}
+#left .card.sel .seltag{color:#ffc66e;border-color:#f4a344}
+#right .meter{background:#050906;border-color:#5c6744;border-radius:2px}
+#right .meter .k{color:#9ca879}
+#right .meter .v{color:#ffc66e;text-shadow:0 0 9px #f4a34455}
+#right .outcome{background:#111b13;border-color:#6d8555}
+#right .outcome.variance{background:#28120f;border-color:#ff5a42}
+#right .cmp{color:#b6c3a8}
+#right .foot{color:#a7b39a;border-color:#4d603e}
+#dock .transport{background:linear-gradient(180deg,#1d2a1e,#080d09);border-color:#92713b;border-radius:3px}
+#dock .ctl{background:#1b2a1d;border-color:#566641;border-radius:2px}
+#dock .tva-btn{border-radius:2px}
+#temporal-screen{
+ position:fixed;z-index:2;pointer-events:none;left:304px;right:326px;top:96px;bottom:82px;
+ border:15px solid #51432d;border-radius:30px;
+ background:linear-gradient(145deg,#b18b4b,#32291c 15%,#090d09 30%,#080c09 70%,#2b2419 90%,#8c6a37);
+ box-shadow:0 0 0 3px #17150f,0 0 0 5px #9d793d66,0 12px 35px #000c,
+ inset 0 0 0 2px #c9a25b66,inset 0 0 25px #000;
+}
+#temporal-screen:before{content:"TEMPORAL LOOM · TVA MONITOR · SIGNAL STABLE";position:absolute;top:-13px;left:22px;right:22px;
+ height:10px;color:#ffc66e;font:8px var(--mono);letter-spacing:.2em;text-align:center}
+#temporal-screen:after{content:"";position:absolute;inset:0;border-radius:12px;
+ background:repeating-linear-gradient(0deg,transparent 0 3px,#ffbd5c0b 3px 4px),radial-gradient(ellipse at center,transparent 48%,#0009 100%);
+ box-shadow:inset 0 0 0 2px #b88c4c55,inset 0 0 26px #f4a34412}
+body:has(#temporal-screen) canvas{clip-path:inset(90px 315px 76px 295px round 18px)}
+@media(max-width:1100px){#temporal-screen{left:285px;right:315px;border-width:10px}
+ body:has(#temporal-screen) canvas{clip-path:inset(90px 305px 76px 275px round 14px)}}
+@media(max-width:860px){#temporal-screen{display:none}body:has(#temporal-screen) canvas{clip-path:none}}
+
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js" onerror="void 0"></script>
+
+<div id="paperfx"></div><div id="vig"></div>
+<div id="temporal-screen" aria-hidden="true"></div>
+
+<div class="hud" id="topbar">
+  <span class="wm">TIME VARIANCE AUTHORITY</span><span style="color:var(--amber)">· MULTI-DOMAIN</span>
+  <span class="sp"></span><span class="cf" id="casefile">CASE FILE TVA-000</span><span class="clk" id="clk">00:00</span>
+</div>
+<div class="hud" id="lamps">
+  <div class="lamp on" data-l="pwr"><i></i>POWER</div>
+  <div class="lamp" data-l="run"><i></i>RUNNING</div>
+  <div class="lamp bad" data-l="var"><i></i>VARIANCE</div>
+  <div class="lamp" data-l="def"><i></i>DEFENDED</div>
+  <div class="lamp" data-l="caught"><i></i>CAUGHT / BLOCKED</div>
+</div>
+
+<div class="hud panel" id="left">
+  <div class="plaque"><span>CASE INTAKE</span><button class="ctl" id="galbtn" style="height:22px;font-size:11px">PRIOR OCCURRENCES</button></div>
+  <div class="body">
+    <div class="sub">① Domain</div>
+    <div id="domains" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="sub">② Manipulation (MITRE ATT&CK for ICS)</div>
+    <div id="menu" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+<div class="hud panel" id="right">
+  <div class="plaque"><span>CASE FILE · DAMAGE REPORT</span><span id="repcase">TVA-000</span></div>
+  <div class="body">
+    <div id="outcome" class="outcome">Select a domain and a manipulation, then EXECUTE.</div>
+    <div class="sub">Consequence meters</div>
+    <div id="meters" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="sub">Defended vs undefended (peak)</div>
+    <div id="compare"></div>
+    <div class="foot" id="incident"></div>
+  </div>
+</div>
+
+<div class="hud" id="dock">
+  <div class="transport">
+    <button class="ctl" id="zoomout" title="Zoom out">－</button>
+    <button class="ctl" id="reset" title="Reset view (R)">⟲</button>
+    <button class="ctl" id="zoomin" title="Zoom in">＋</button>
+    <button class="tva-btn" id="exec">▸ EXECUTE</button>
+    <input type="range" id="range" min="0" max="100" value="0">
+    <button class="ctl" id="speed">1×</button>
+    <button class="ctl tog" id="deftog" title="Toggle defended">DEFENDED</button>
+    <span class="clk2" id="clock">0s</span>
+  </div>
+</div>
+
+<div class="hud" id="bottombar"><span>CHENNAI INSTITUTE OF TECHNOLOGY · CSBS</span><span id="ambient">SPARKTRAIL MULTI-DOMAIN</span></div>
+<div class="banner" id="banner" hidden></div>
+
+<div id="gallery"><div class="wrap">
+  <button class="tva-btn gclose" id="galclose">CLOSE</button>
+  <h2>PRIOR OCCURRENCES</h2>
+  <div class="lead">Public cyber-physical incidents — reporting, not simulation. No physics, no mechanism. Context that proves the pattern generalizes.</div>
+  <div class="gcards" id="gcards"></div>
+  <div class="through" id="through"></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+// TVA component renders, keyed by node id (shared ids reuse one image — "generate
+// once, reuse everywhere"). Served as published files next to this page.
+const NODE_IMG={
+  ATTACKER:'models/shared/attacker.jpg', PLC:'models/shared/plc.jpg',
+  MONITOR:'models/shared/monitor.jpg', FUSION:'models/shared/fusion.jpg',
+  TRANSFORMER:'models/shared/transformer.jpg',
+  CSMS:'models/ev_hub/csms.jpg', CP_1:'models/ev_hub/cp1.jpg',
+  BMS:'models/ev_hub/bms.jpg', PACK:'models/ev_hub/pack.jpg',
+  SCADA:'models/power_sub/scada.jpg', RTU:'models/power_sub/rtu.jpg',
+  BREAKER:'models/power_sub/breaker.jpg', TAP_CHANGER:'models/power_sub/tap_changer.jpg',
+  FEEDER:'models/power_sub/feeder.jpg', LOADS:'models/power_sub/loads.jpg',
+};
+let INDEX=null, DOM=null, SCN=null, defended=false, VAR=null, texLoader=null;
+let scene3d,cam,renderer,raycaster,nodeMeshes={},tubes=[],pulses=[],caseNo=0;
+let playing=false,tIdx=0; const SPEEDS=[0.5,1,2,4]; let spdI=1;
+
+async function boot(){
+  try{ INDEX=await (await fetch('./scenes/index.json')).json(); }
+  catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes/index.json — run `python -m sparktrail.domains` and serve viz3d/.'; return; }
+  buildDomainList(); buildGallery(); initGL(); wireNav(); animate();
+  loadDomain(INDEX.domains[0].id);
+}
+function buildDomainList(){
+  const box=$('#domains');
+  INDEX.domains.forEach(d=>{ const c=document.createElement('div'); c.className='card'; c.dataset.d=d.id;
+    c.innerHTML=`<span class="seltag">OPEN</span><div class="nm">${d.title}</div><div class="meta">${d.scenarios} manipulations · ${d.metrics} metrics</div>`;
+    c.onclick=()=>loadDomain(d.id); box.appendChild(c); });
+}
+async function loadDomain(id){
+  $$all('#domains .card').forEach(c=>c.classList.toggle('sel',c.dataset.d===id));
+  DOM=await (await fetch(`./scenes/${id}.json`)).json();
+  buildMenu(); buildScene(); selectScenario(DOM.scenarios[0].id);
+}
+const $$all=s=>document.querySelectorAll(s);
+function buildMenu(){
+  const box=$('#menu'); box.innerHTML='';
+  DOM.scenarios.forEach(s=>{ const c=document.createElement('div'); c.className='card'; c.dataset.s=s.id;
+    c.innerHTML=`<span class="seltag">PICK</span><div class="nm">${s.category_label}</div>`+
+      `<div class="meta">${s.description}</div><span class="tag">${s.mitre_ics}</span>`;
+    c.onclick=()=>selectScenario(s.id); box.appendChild(c); });
+}
+function selectScenario(sid){
+  $$all('#menu .card').forEach(c=>c.classList.toggle('sel',c.dataset.s===sid));
+  SCN=DOM.scenarios.find(s=>s.id===sid);
+  caseNo++; const cf='TVA-'+String(100+caseNo).padStart(3,'0');
+  $('#casefile').textContent='CASE FILE '+cf; $('#repcase').textContent=cf;
+  loadVariant();
+}
+function loadVariant(){
+  VAR=SCN.variants[defended?'defended':'undefended'];
+  tIdx=0; $('#range').max=VAR.timeline.length-1; $('#range').value=0;
+  colorByDepth(); renderReport(); updateClock(); setPlay(true);
+}
+
+// ---------- GL ----------
+function initGL(){
+  scene3d=new THREE.Scene(); scene3d.fog=new THREE.FogExp2(0x120c06,0.025);
+  cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,300);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  texLoader=new THREE.TextureLoader();
+  document.body.insertBefore(renderer.domElement,document.body.firstChild);
+  scene3d.add(new THREE.HemisphereLight(0xffd79a,0x2a1d10,0.85));
+  const key=new THREE.PointLight(0xffd98a,1.6,160); key.position.set(6,18,14); scene3d.add(key);
+  const fill=new THREE.PointLight(0xffb060,0.9,120); fill.position.set(0,6,18); scene3d.add(fill);
+  // No ground grid: keep the TVA temporal display clean.
+  raycaster=new THREE.Raycaster(); installOrbit();
+  addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+}
+let orb={az:0.9,el:0.62,r:22,idle:0,drag:false,px:0,py:0,moved:0,pivot:new THREE.Vector3(2,0,0),tgt:new THREE.Vector3(2,0,0),tr:22};
+function installOrbit(){
+  const c=renderer.domElement;
+  c.addEventListener('pointerdown',e=>{orb.drag=true;orb.px=e.clientX;orb.py=e.clientY;orb.idle=0;orb.moved=0;});
+  addEventListener('pointerup',e=>{ if(orb.drag&&orb.moved<5) pick(e); orb.drag=false; });
+  addEventListener('pointermove',e=>{ if(!orb.drag)return; orb.idle=0;
+    orb.moved+=Math.abs(e.clientX-orb.px)+Math.abs(e.clientY-orb.py);
+    orb.az-=(e.clientX-orb.px)*0.006; orb.el+=(e.clientY-orb.py)*0.006;
+    orb.el=Math.max(0.12,Math.min(1.35,orb.el)); orb.px=e.clientX; orb.py=e.clientY; });
+  c.addEventListener('wheel',e=>{orb.tr=Math.max(8,Math.min(54,orb.tr+e.deltaY*0.014));e.preventDefault();},{passive:false});
+}
+function pick(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(m,cam);
+  const hit=raycaster.intersectObjects(Object.values(nodeMeshes).map(n=>n.group),true)[0];
+  if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o){ const n=nodeMeshes[o.userData.node]; orb.tgt.copy(n.pos); orb.tr=8.5; } }
+}
+let sceneC=new THREE.Vector3(2,0,0), sceneR=26;
+function resetView(){ orb.tgt.copy(sceneC); orb.tr=sceneR; }
+function updateCam(dt){ orb.idle+=dt; if(!orb.drag&&orb.idle>4) orb.az+=dt*0.04;
+  orb.pivot.lerp(orb.tgt,Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
+  const r=orb.r,el=orb.el,p=orb.pivot;
+  cam.position.set(p.x+Math.cos(orb.az)*Math.cos(el)*r,p.y+Math.sin(el)*r,p.z+Math.sin(orb.az)*Math.cos(el)*r);
+  cam.lookAt(p); }
+
+function sprite(text){
+  const cv=document.createElement('canvas'); cv.width=256;cv.height=64;
+  const g=cv.getContext('2d'); g.fillStyle='#FFCE6E'; g.shadowColor='#F0A836'; g.shadowBlur=8;
+  g.font='30px "Oswald",sans-serif'; g.textAlign='center'; g.fillText(text,128,42);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  sp.scale.set(3,0.75,1); return sp;
+}
+// Procedural TVA prop shop: every node is a real 3D assembly, not a flat image.
+// Reference renders remain as inset enamel/CRT faceplates on the matching object.
+const MAT={
+  walnut:new THREE.MeshStandardMaterial({color:0x2b1e12,roughness:0.78,metalness:0.18}),
+  brass:new THREE.MeshStandardMaterial({color:0xb18a4b,roughness:0.42,metalness:0.68}),
+  enamel:new THREE.MeshStandardMaterial({color:0x5c4226,roughness:0.55,metalness:0.42}),
+  paper:new THREE.MeshStandardMaterial({color:0xd6bf96,roughness:0.9,metalness:0.02}),
+  dark:new THREE.MeshStandardMaterial({color:0x140e08,roughness:0.36,metalness:0.55}),
+  amber:new THREE.MeshStandardMaterial({color:0xf0a836,emissive:0xf0a836,emissiveIntensity:0.65,roughness:0.3,metalness:0.2}),
+  red:new THREE.MeshStandardMaterial({color:0xb03428,emissive:0x5a1008,emissiveIntensity:0.3,roughness:0.42}),
+  teal:new THREE.MeshStandardMaterial({color:0x467874,roughness:0.6,metalness:0.35})
+};
+function addMesh(g,geo,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){
+  const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);g.add(m);return m;
+}
+function box(g,w,h,d,mat,x=0,y=0,z=0){return addMesh(g,new THREE.BoxGeometry(w,h,d),mat,x,y,z);}
+function cylinder(g,rt,rb,h,mat,x=0,y=0,z=0,seg=16,rx=0,rz=0){
+  return addMesh(g,new THREE.CylinderGeometry(rt,rb,h,seg),mat,x,y,z,rx,0,rz);
+}
+function lamp(g,x,y,z,mat=MAT.amber,r=.09){
+  addMesh(g,new THREE.SphereGeometry(r,12,8),mat,x,y,z);
+  const halo=new THREE.PointLight(mat===MAT.red?0xb03428:0xffb947,0.22,2.4);halo.position.set(x,y,z);g.add(halo);
+}
+function ribbedBox(g,w,h,d,mat,ribs=5){
+  box(g,w,h,d,mat);
+  for(let i=0;i<ribs;i++){
+    const x=-w*.38+(w*.76)*(i/Math.max(1,ribs-1));
+    box(g,.045,h*.78,d*.12,MAT.brass,x,0,d*.53);
+  }
+}
+function addFaceplate(g,n,scale=1){
+  const img=NODE_IMG[n.id]; if(!img)return;
+  // Picture is an inset instrument panel on the object's front (+Z), never a billboard.
+  const frame=box(g,1.02*scale,.68*scale,.075,MAT.brass,0,.2,.46*scale);
+  const bezel=box(g,.94*scale,.60*scale,.035,MAT.dark,0,.2,.505*scale);
+  const tex=texLoader.load(img);tex.encoding=THREE.sRGBEncoding;
+  const panel=new THREE.Mesh(new THREE.PlaneGeometry(.88*scale,.52*scale),
+    new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+  panel.position.set(0,.2,.53*scale);g.add(panel);
+  // Tiny physical screws and an amber status lamp make the artwork read as hardware.
+  [[-.46,.48],[.46,.48],[-.46,-.08],[.46,-.08]].forEach(([x,y])=>
+    addMesh(g,new THREE.CylinderGeometry(.025,.025,.018,8),MAT.brass,x*scale,y*scale,.535*scale,Math.PI/2));
+  lamp(g,.42*scale,.58*scale,.54*scale);
+}
+function makeTVAModel(n){
+  const g=new THREE.Group(), id=n.id, kind=n.kind;
+  const depthMat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:.22,roughness:.55,metalness:.3});
+  // Shared plinth and feet ground every device in the same tactile TVA workshop.
+  box(g,1.52,.16,1.12,depthMat,0,-.76,0);
+  box(g,1.38,.055,1.0,MAT.brass,0,-.66,0);
+  const isPack=/PACK|BATTERY|BESS|BUFFER/i.test(id);
+  const isCharger=/CP_1|CHARGER|DOSING_PUMP/i.test(id);
+  const isTransformer=/TRANSFORMER|TAP_CHANGER|BREAKER|FEEDER/i.test(id);
+  const isServer=/CSMS|SCADA|ATTACKER|PLC|RTU|MONITOR|FUSION|BMS|CONTROLLER|HUB/i.test(id);
+  if(id==='ATTACKER'||kind==='attacker'){
+    // TVA anomaly beacon: faceted brass containment core in a guarded cage.
+    cylinder(g,.55,.62,.16,MAT.dark,0,-.52,0,12);
+    addMesh(g,new THREE.OctahedronGeometry(.52,0),MAT.red,0,.08,0,0,.2,0);
+    addMesh(g,new THREE.TorusGeometry(.72,.035,8,32),MAT.brass,0,.08,0,Math.PI/2,.15,0);
+    addMesh(g,new THREE.TorusGeometry(.88,.025,8,32),MAT.amber,0,.08,0,Math.PI/2,-.2,0);
+    for(let i=0;i<4;i++){const a=i*Math.PI/2;box(g,.07,1.45,.07,MAT.brass,Math.cos(a)*.67,.02,Math.sin(a)*.67);}
+    lamp(g,0,.75,0,MAT.red,.12);
+  }else if(isPack){
+    // Ribbed battery cassette with terminal caps and thermal indicator.
+    ribbedBox(g,1.2,1.05,.82,MAT.enamel,9);
+    box(g,.82,.11,.64,MAT.dark,0,.59,0);
+    for(let x of [-.28,0,.28])cylinder(g,.075,.075,.12,MAT.brass,x,.69,.1,12);
+    box(g,.12,.42,.04,MAT.teal,-.52,.03,.44);
+    box(g,.12,.58,.04,MAT.amber,-.3,.03,.44);
+    lamp(g,.48,.42,.45,MAT.red,.1);
+    addFaceplate(g,n,.83);
+  }else if(isCharger){
+    // Industrial charger pedestal, flared shoulders, CRT, hose and connector.
+    cylinder(g,.65,.72,.16,MAT.dark,0,-.52,0,20);
+    box(g,.88,1.45,.68,MAT.enamel,0,.22,0);
+    box(g,1.02,.12,.78,MAT.brass,0,.94,0);
+    box(g,.78,.08,.62,MAT.walnut,0,-.54,0);
+    box(g,.66,.45,.09,MAT.dark,0,.36,.36);
+    addFaceplate(g,n,.72);
+    const hose=new THREE.Mesh(new THREE.TorusGeometry(.28,.045,8,22,Math.PI*1.45),MAT.dark);
+    hose.position.set(.57,.05,-.02);hose.rotation.set(Math.PI/2,0,.4);g.add(hose);
+    box(g,.16,.24,.13,MAT.brass,.78,-.12,.05);
+    lamp(g,-.32,.77,.37);
+  }else if(isTransformer){
+    // Finned transformer / breaker cabinet with porcelain bushings and analog dial.
+    ribbedBox(g,1.42,1.02,.82,MAT.enamel,7);
+    box(g,1.48,.13,.88,MAT.brass,0,.57,0);
+    for(let x of [-.43,0,.43]){
+      cylinder(g,.13,.16,.24,MAT.paper,x,.72,-.12,12);
+      cylinder(g,.065,.065,.12,MAT.brass,x,.89,-.12,12);
+    }
+    cylinder(g,.22,.22,.09,MAT.brass,0,.25,.46,24,Math.PI/2);
+    cylinder(g,.17,.17,.035,MAT.dark,0,.25,.51,24,Math.PI/2);
+    addMesh(g,new THREE.BoxGeometry(.025,.13,.025),MAT.amber,0,.29,.535,0,0,-.3);
+    lamp(g,.53,-.1,.44,MAT.red,.08);
+    addFaceplate(g,n,.78);
+  }else if(isServer){
+    // Reel-to-reel / relay rack: stacked drawers, vent slots, dials and lamps.
+    box(g,1.32,1.5,.78,MAT.walnut,0,.08,0);
+    box(g,1.38,1.56,.08,MAT.brass,0,.08,.41);
+    for(let i=0;i<4;i++){
+      const y=.57-i*.34;
+      box(g,1.12,.26,.07,MAT.enamel,0,y,.47);
+      box(g,.53,.12,.025,MAT.dark,-.19,y,.52);
+      for(let j=0;j<3;j++)lamp(g,.25+j*.13,y,.54,j===2?MAT.red:MAT.amber,.025);
+      for(let j=0;j<5;j++)box(g,.025,.15,.025,MAT.brass,-.46+j*.07,y,.53);
+    }
+    // Spool hubs evoke period recording equipment without becoming decorative clutter.
+    for(let x of [-.42,.42]){
+      cylinder(g,.17,.17,.07,MAT.brass,x,.87,.49,20,Math.PI/2);
+      cylinder(g,.105,.105,.075,MAT.dark,x,.87,.535,20,Math.PI/2);
+    }
+    addFaceplate(g,n,.78);
+  }else if(kind==='controller'||/RTU|PLC|MONITOR|FUSION/i.test(id)){
+    // Wall-mount control unit with analog meters and toggle switches.
+    box(g,1.12,1.12,.62,MAT.enamel,0,0,0);
+    box(g,1.18,.1,.68,MAT.brass,0,.58,0);
+    box(g,.78,.38,.07,MAT.dark,0,.2,.34);
+    for(let x of [-.22,0,.22]){
+      cylinder(g,.09,.09,.035,MAT.brass,x,.2,.39,16,Math.PI/2);
+      addMesh(g,new THREE.BoxGeometry(.025,.12,.025),MAT.amber,x,.23,.42,0,0,-.25);
+    }
+    for(let x of [-.35,.35])lamp(g,x,-.32,.34,x<0?MAT.amber:MAT.red,.055);
+    addFaceplate(g,n,.75);
+  }else if(/TANK|WATER|CHILLER|PUMP|PIPE|VALVE/i.test(id)||kind==='device'){
+    // Process equipment: vessel, flanged pipes, valve wheel and pressure gauge.
+    cylinder(g,.52,.58,1.18,MAT.enamel,0,.02,0,20);
+    cylinder(g,.52,.52,.09,MAT.brass,0,.64,0,20);
+    cylinder(g,.55,.55,.08,MAT.dark,0,-.57,0,20);
+    cylinder(g,.09,.09,.34,MAT.brass,.53,.28,0,12,0,Math.PI/2);
+    cylinder(g,.21,.21,.055,MAT.brass,0,.35,.53,24,Math.PI/2);
+    cylinder(g,.16,.16,.025,MAT.dark,0,.35,.565,24,Math.PI/2);
+    addMesh(g,new THREE.BoxGeometry(.025,.12,.025),MAT.amber,0,.39,.59,0,0,.35);
+    addFaceplate(g,n,.72);
+  }else{
+    // Generic process unit: instrumented cabinet, not a sphere or placeholder cube.
+    ribbedBox(g,1.2,1.05,.78,MAT.enamel,5);
+    box(g,1.28,.12,.84,MAT.brass,0,.58,0);
+    box(g,.72,.36,.07,MAT.dark,0,.16,.42);
+    for(let x of [-.22,0,.22])lamp(g,x,.16,.47);
+    addFaceplate(g,n,.78);
+  }
+  // A small TVA asset plate is mounted on the side of every model.
+  box(g,.34,.13,.025,MAT.paper,.46,-.42,.43);
+  box(g,.04,.07,.025,MAT.red,.34,-.42,.45);
+  g.userData.depthMat=depthMat;
+  return g;
+}
+function clearScene(){
+  Object.values(nodeMeshes).forEach(n=>scene3d.remove(n.group));
+  tubes.forEach(t=>scene3d.remove(t.mesh)); pulses.forEach(p=>scene3d.remove(p.mesh));
+  nodeMeshes={};tubes=[];pulses=[];
+}
+function buildScene(){
+  clearScene();
+  const S=1.9;
+  DOM.nodes.forEach(n=>{
+    const g=makeTVAModel(n);
+    const lbl=sprite(n.label);lbl.position.set(0,1.25,0);lbl.renderOrder=3;g.add(lbl);
+    g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S);scene3d.add(g);
+    g.traverse(o=>{if(o.isMesh||o.isSprite)o.userData.node=n.id;});
+    // Tint only the model's protective plinth/frame. Keep the brass, enamel and CRT art legible.
+    nodeMeshes[n.id]={group:g,mat:g.userData.depthMat,pos:g.position.clone(),kind:n.kind,img:!!NODE_IMG[n.id]};
+  });
+  DOM.links.forEach(([a,b])=>{
+    const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
+    const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,.04,8,false);
+    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x5c4226,emissiveIntensity:.3});
+    const mesh=new THREE.Mesh(geo,mat);scene3d.add(mesh);
+    tubes.push({mesh,mat,a:pa.clone(),b:pb.clone(),base:new THREE.Color(0x5c4226),glow:0});
+  });
+  const xs=Object.values(nodeMeshes).map(n=>n.pos.x),zs=Object.values(nodeMeshes).map(n=>n.pos.z);
+  sceneC.set((Math.min(...xs)+Math.max(...xs))/2,0,(Math.min(...zs)+Math.max(...zs))/2);
+  sceneR=Math.max(18,Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs))*.95+10);
+  orb.pivot.copy(sceneC);orb.r=sceneR;resetView();
+}
+const DCOL=d=>d===0?0xB03428:d===1?0xD67828:d===2?0xF0A836:0x6b5225;
+function colorByDepth(){
+  const dep=VAR.depths;
+  for(const id in nodeMeshes){ const n=nodeMeshes[id];
+    const c=new THREE.Color(id in dep?DCOL(dep[id]):0x4a3620);
+    n.mat.color.copy(c);                      // billboard frame OR primitive body
+    if(!n.img && n.mat.emissive){ n.mat.emissive.copy(c); n.mat.emissiveIntensity=(id in dep)?0.6:0.2; } }
+}
+function trailTo(nid){ const to=nodeMeshes[nid]&&nodeMeshes[nid].pos; if(!to)return;
+  let best=null,bd=1e9; tubes.forEach(r=>{const d=r.b.distanceTo(to);if(d<bd){bd=d;best=r;}}); if(best&&bd<1.6)best.glow=1; }
+function spawnPulse(a,b){ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,14,14),new THREE.MeshBasicMaterial({color:0xFFCE6E}));
+  scene3d.add(m); pulses.push({mesh:m,from:pa.clone(),to:pb.clone(),u:0}); trailTo(b); }
+let firedBeads=false;
+function fireBeads(){ // one bead per link, staggered along the propagation order
+  if(firedBeads)return; firedBeads=true;
+  DOM.links.forEach(([a,b],i)=>setTimeout(()=>{ if(nodeMeshes[a]&&nodeMeshes[b]) spawnPulse(a,b); }, i*180));
+}
+
+// ---------- report / meters ----------
+const breach=(m,v)=> m.worse==='high'? v>m.limit : v<m.limit;
+function renderReport(){
+  const fr=VAR.timeline[tIdx]||VAR.timeline[0];
+  let html='';
+  DOM.metrics.forEach(m=>{ const v=fr.metrics[m.key]; const b=breach(m,v);
+    const pct = m.worse==='high'? v/m.limit*100 : (v/Math.max(m.normal,1))*100;
+    html+=`<div class="meter ${b?'breach':''}"><div class="k"><span>${m.label}</span><span>limit ${m.limit}${m.unit}</span></div>`+
+      `<div class="v">${v}<small> ${m.unit}</small></div><div class="bar"><i style="width:${Math.max(3,Math.min(100,pct))}%"></i></div></div>`;
+  });
+  $('#meters').innerHTML=html;
+  // compare peaks
+  const u=SCN.variants.undefended.peaks, d=SCN.variants.defended.peaks; let cmp='';
+  DOM.metrics.forEach(m=>{ cmp+=`<div class="cmp"><span>${m.label}</span><span>undef <b>${u[m.key]}</b> · def <span class="ok">${d[m.key]}</span> ${m.unit}</span></div>`; });
+  $('#compare').innerHTML=cmp;
+  // outcome
+  const f=VAR.flags; const o=$('#outcome');
+  // fusion only DETECTS (alert); the proxy PREVENTS. "Contained" needs no breach.
+  if(f.variance_at==null && (f.proxy_blocked||f.fusion_caught)){ o.className='outcome contained';
+    o.innerHTML=`<b>THREAT CONTAINED</b> — ${f.proxy_blocked?'Zero-Trust proxy blocked the command':'sensor fusion caught the spoof'}. Process stayed in band.`; }
+  else if(f.variance_at!=null){ o.className='outcome variance';
+    o.innerHTML=`<b>VARIANCE DETECTED</b> at T+${Math.round(f.variance_at)}s — a consequence metric crossed its safe limit.`+
+      (f.fusion_caught?` Sensor fusion flagged the spoof (alert-only — it detects; the proxy prevents).`:` No defense active.`); }
+  else { o.className='outcome'; o.textContent='Nominal — no limit crossed.'; }
+  $('#incident').innerHTML=`<b>MITRE ATT&CK for ICS:</b> ${SCN.mitre_ics}<br><b>Prior occurrence:</b> ${SCN.incident_ref}<br><b>Defense:</b> ${SCN.defense}`;
+  // lamps
+  $(`.lamp[data-l="var"]`).classList.toggle('on', f.variance_at!=null);
+  $(`.lamp[data-l="def"]`).classList.toggle('on', defended);
+  $(`.lamp[data-l="caught"]`).classList.toggle('on', f.proxy_blocked||f.fusion_caught);
+}
+function updateClock(){ const t=Math.round((VAR.timeline[tIdx]||{t:0}).t); $('#clock').textContent=t+'s';
+  $('#clk').textContent=`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`; }
+function setPlay(p){ playing=p; $('#exec').textContent=p?'❚❚ RUNNING':'▸ EXECUTE';
+  $(`.lamp[data-l="run"]`).classList.toggle('on',p); document.body.classList.toggle('running',p);
+  if(p){ firedBeads=false; } }
+
+// ---------- transport / nav ----------
+function wireNav(){
+  $('#exec').onclick=()=>{ if(tIdx>=VAR.timeline.length-1){tIdx=0;} setPlay(!playing); };
+  $('#reset').onclick=resetView;
+  $('#zoomin').onclick=()=>orb.tr=Math.max(8,orb.tr-2.5);
+  $('#zoomout').onclick=()=>orb.tr=Math.min(54,orb.tr+2.5);
+  $('#speed').onclick=()=>{spdI=(spdI+1)%SPEEDS.length;$('#speed').textContent=SPEEDS[spdI]+'×';};
+  $('#deftog').onclick=()=>{ defended=!defended; $('#deftog').classList.toggle('on',defended); loadVariant(); };
+  $('#range').oninput=e=>{ setPlay(false); tIdx=+e.target.value; renderReport(); updateClock(); };
+  $('#galbtn').onclick=()=>$('#gallery').classList.add('show');
+  $('#galclose').onclick=()=>$('#gallery').classList.remove('show');
+  addEventListener('keydown',e=>{ const tg=(e.target.tagName||''); if(tg==='INPUT'||tg==='SELECT')return;
+    const k=e.key; let h=true;
+    if(k==='ArrowLeft')orb.az-=0.14; else if(k==='ArrowRight')orb.az+=0.14;
+    else if(k==='ArrowUp')orb.el=Math.min(1.35,orb.el+0.09); else if(k==='ArrowDown')orb.el=Math.max(0.12,orb.el-0.09);
+    else if(k==='+'||k==='=')orb.tr=Math.max(8,orb.tr-2.5); else if(k==='-'||k==='_')orb.tr=Math.min(54,orb.tr+2.5);
+    else if(k==='r'||k==='R')resetView(); else if(k===' ')$('#exec').click(); else h=false;
+    if(h){orb.idle=0;e.preventDefault();} });
+}
+
+function buildGallery(){
+  const box=$('#gcards');
+  INDEX.case_studies.forEach(c=>{ const d=document.createElement('div'); d.className='gcard'+(c.human_harm?' harm':'');
+    d.innerHTML=`<div class="d">${c.domain}</div><div class="i">${c.incident}</div><div class="c">${c.consequence}</div>`+
+      (c.note?`<div class="n">${c.note}</div>`:''); box.appendChild(d); });
+  $('#through').innerHTML='<b>The through-line:</b> across every one of these, the control layer trusted a command or a sensor instead of checking it against physics — exactly the gap SparkTrail\'s proxy and fusion validator close, in any domain.';
+}
+
+let last=performance.now(),acc=0;
+function animate(){ requestAnimationFrame(animate);
+  const now=performance.now(),dt=(now-last)/1000; last=now; updateCam(dt);
+  if(VAR){ if(playing){ acc+=dt*SPEEDS[spdI];
+      if(acc>0.08){ acc=0; if(tIdx===0) fireBeads(); tIdx=Math.min(tIdx+1,VAR.timeline.length-1);
+        $('#range').value=tIdx; renderReport(); updateClock();
+        if(tIdx>=VAR.timeline.length-1) setPlay(false); } }
+    const amber=new THREE.Color(0xFFB000);
+    for(const r of tubes){ if(r.glow>0){ r.glow=Math.max(0,r.glow-dt*0.6);
+      r.mat.color.copy(r.base).lerp(amber,r.glow); r.mat.emissive.copy(r.mat.color); r.mat.emissiveIntensity=0.3+r.glow*1.4; } }
+    for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.9;
+      if(p.u>=1){ scene3d.remove(p.mesh); pulses.splice(i,1); continue; }
+      p.mesh.position.lerpVectors(p.from,p.to,p.u); } }
+  renderer.render(scene3d,cam);
+}
+boot();
+</script>

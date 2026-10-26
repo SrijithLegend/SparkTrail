@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+trace*.json
+nul
+.DS_Store
+sparktrail.zip

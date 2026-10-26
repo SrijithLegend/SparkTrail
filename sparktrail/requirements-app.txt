@@ -1,0 +1,4 @@
+# Phase 4 chaos console only (core engine needs just requirements.txt)
+-r requirements.txt
+streamlit>=1.30
+pandas>=2.0

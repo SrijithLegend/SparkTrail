@@ -1,0 +1,9 @@
+name: HPC 350 kW - overcurrent, coolant climbs, temp spoofed
+ambient_C: 35
+run_s: 2400
+target: { type: charger_hpc, limits: { normal_A: 350, max_A: 500 } }
+hub:    { grid_type: single_feeder, chargers: 1, transformer_kVA: 1000, impedance_pu: 0.05 }
+attacks:
+  - { id: A-OC,  entry_point: cyber.backend_link, mechanism: command_override, field: charging_profile.limit_A, to: 500, start_s: 60 }
+  - { id: A-SPF, entry_point: cyber.sensor_bus,   mechanism: sensor_spoof,     field: sensor.pack_temp_C, hold_value: 32, start_s: 60 }
+monitor: { physics_aware: { divergence_C: 3, model: { C: 580000, R: 0.065 } } }

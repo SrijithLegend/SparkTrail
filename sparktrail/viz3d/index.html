@@ -1,0 +1,840 @@
+<title>SparkTrail · TVA Field Terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* ===== SparkTrail — Time Variance Authority field terminal =====================
+   Warm, bureaucratic, amber-lit. 70% paper, 20% walnut, 10% amber. The sim
+   engine underneath is unchanged; this is case work: requisition a tampering
+   action, execute the temporal event, read the damage report. ============== */
+:root{
+  --paper:#D6BF96; --paper-2:#C4A878; --walnut:#2B1E12; --brown:#3A2A1A; --brown-2:#5C4226;
+  --amber:#F0A836; --amber-hi:#FFCE6E; --orange:#D67828;
+  --olive:#787842; --teal:#467874; --cream:#F0E4CA;
+  --danger:#B03428; --ok:#787842;
+  --disp:"Bahnschrift","Oswald","Arial Narrow",sans-serif;
+  --mono:"IBM Plex Mono","Consolas",monospace;
+}
+:root[data-theme="light"]{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--mono);color:var(--brown);overflow:hidden;
+  background:var(--paper);-webkit-tap-highlight-color:transparent}
+canvas{display:block;position:fixed;inset:0}
+h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;font-weight:700;letter-spacing:.06em;margin:0}
+.caps{text-transform:uppercase;letter-spacing:.08em}
+
+/* faint grid + grain + vignette over the paper void */
+#paperfx{position:fixed;inset:0;z-index:48;pointer-events:none;
+  /* No overlay grid: the simulation ground and CRT image must stay clean. */
+  background:none;opacity:0;mix-blend-mode:normal}
+#vignette{position:fixed;inset:0;z-index:48;pointer-events:none;
+  box-shadow:inset 0 0 220px rgba(43,30,18,.55)}
+
+.hud{position:fixed;z-index:5}
+
+/* ---- global chrome ---- */
+#topbar{top:0;left:0;right:0;height:56px;background:var(--walnut);color:var(--cream);
+  border-bottom:3px solid var(--amber);display:flex;align-items:center;gap:16px;
+  padding:0 16px;font-family:var(--mono);z-index:20}
+#topbar .wm{font-family:var(--disp);font-size:20px;letter-spacing:.14em;color:var(--amber-hi)}
+#topbar .sp{flex:1}
+#topbar .cf{font-size:13px;letter-spacing:.08em;color:var(--cream)}
+#topbar .clk{font-size:15px;color:var(--amber-hi);min-width:74px;text-align:right}
+#lamps{top:56px;left:0;right:0;height:26px;background:#20160c;display:flex;align-items:center;gap:14px;
+  padding:0 18px;z-index:19;border-bottom:1px solid #4a3318}
+.lamp{display:flex;align-items:center;gap:6px;font:11px var(--mono);color:#8a714a;letter-spacing:.1em}
+.lamp i{width:10px;height:10px;border-radius:50%;background:#3a2a16;border:1px solid #000}
+.lamp.on{color:var(--amber-hi)}
+.lamp.on i{background:var(--amber-hi);box-shadow:0 0 12px var(--amber-hi)}
+.lamp.alert.on i{background:var(--danger);box-shadow:0 0 12px var(--danger)}
+.lamp.alert.on{color:#e88}
+#lampsweep{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,206,110,.35),transparent);
+  transform:translateX(-100%);opacity:0;pointer-events:none}
+#lampsweep.go{animation:sweep .9s ease}
+@keyframes sweep{0%{transform:translateX(-100%);opacity:1}100%{transform:translateX(100%);opacity:0}}
+
+#bottombar{bottom:0;left:0;right:0;height:30px;background:var(--walnut);color:var(--cream);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+  font:12px var(--mono);letter-spacing:.06em;border-top:2px solid var(--brown-2);z-index:20}
+
+/* lamps flicker on boot; the seal pulses amber while the sim runs */
+#lamps{animation:lampboot 1.3s ease 1}
+@keyframes lampboot{0%,100%{opacity:1}12%{opacity:.25}24%{opacity:1}36%{opacity:.5}48%{opacity:1}}
+body.running #seal-corner{animation:sealpulse 2.4s ease-in-out infinite}
+@keyframes sealpulse{0%,100%{filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+  50%{filter:drop-shadow(0 0 11px rgba(240,168,54,.75))}}
+
+/* ---- panels ---- */
+.tva-panel{background:var(--paper-2);border:3px solid var(--brown-2);border-radius:8px;
+  box-shadow:0 4px 0 rgba(0,0,0,.28),inset 0 0 60px rgba(60,40,20,.25);position:relative}
+.plaque{background:var(--walnut);color:var(--amber-hi);font:600 13px/1 var(--mono);
+  letter-spacing:.12em;text-transform:uppercase;padding:9px 12px;border-radius:6px 6px 0 0;
+  display:flex;justify-content:space-between;align-items:center}
+.plaque .cls{color:var(--danger);font-weight:700}
+
+/* requisition (left) */
+#req{position:fixed;top:98px;left:12px;width:270px;max-height:calc(100% - 150px);display:flex;flex-direction:column;
+  overflow:hidden}
+#req .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.sub{font:600 11px var(--mono);letter-spacing:.12em;color:var(--brown);text-transform:uppercase;opacity:.8}
+.tiles{display:flex;flex-direction:column;gap:6px}
+.card{background:var(--paper);border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px;
+  cursor:pointer;position:relative;display:flex;flex-direction:column;gap:2px;transition:transform .08s}
+.card:hover{transform:translateX(2px)}
+.card .nm{font-family:var(--disp);font-size:14px;letter-spacing:.04em;color:var(--brown)}
+.card .meta{font:11px var(--mono);color:var(--brown-2)}
+.card .hole{position:absolute;top:7px;right:8px;width:9px;height:9px;border-radius:50%;
+  background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--brown-2)}
+.card.sel{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.card.sel::after{content:"SELECTED";position:absolute;right:6px;bottom:4px;color:var(--danger);
+  font:700 11px var(--disp);letter-spacing:.1em;border:2px solid var(--danger);border-radius:4px;
+  padding:0 4px;transform:rotate(-7deg);opacity:.85}
+.form29{background:#201711;border:2px solid var(--brown-2);border-radius:6px;padding:8px;
+  font:11px/1.5 var(--mono);color:var(--amber-hi);white-space:pre-wrap}
+.form29 b{color:var(--cream)}
+
+/* damage report (right) */
+#report{position:fixed;top:98px;right:12px;width:300px;max-height:calc(100% - 150px);display:flex;flex-direction:column;overflow:hidden}
+#report .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.nixies{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nixie{background:#120C06;border:2px solid var(--brown-2);border-radius:6px;padding:7px 8px}
+.nixie .k{font:10px var(--mono);letter-spacing:.1em;color:#9a7a44;text-transform:uppercase}
+.nixie .v{font-family:var(--mono);font-size:22px;color:var(--amber-hi);text-shadow:0 0 8px rgba(240,168,54,.5);
+  font-variant-numeric:tabular-nums;margin-top:2px}
+.nixie .v small{font-size:12px;color:#9a7a44}
+.nixie.hot .v{color:#ff9a6a;text-shadow:0 0 10px rgba(214,52,40,.6)}
+.comp{display:flex;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--brown-2);
+  border-radius:6px;padding:6px 8px}
+.comp .nm{flex:1;font-family:var(--disp);font-size:13px;color:var(--brown)}
+.comp .meta{font:11px var(--mono);color:var(--brown-2)}
+.comp[data-node]{cursor:pointer;transition:transform .08s}
+.comp[data-node]:hover{border-color:var(--amber);transform:translateX(-2px)}
+#navhint{position:fixed;left:16px;bottom:44px;z-index:6;font:12px var(--mono);color:var(--amber-hi);
+  background:#160f06d9;border:1px solid var(--brown-2);border-radius:5px;padding:5px 11px;letter-spacing:.03em;
+  text-shadow:0 0 6px rgba(255,176,0,.3);transition:opacity .8s;pointer-events:none}
+.stamp{font:700 12px var(--disp);letter-spacing:.08em;border:2px solid;border-radius:4px;padding:1px 6px;
+  transform:rotate(-6deg)}
+.stamp.cleared{color:var(--olive);border-color:var(--olive)}
+.stamp.stressed{color:var(--orange);border-color:var(--orange)}
+.stamp.damaged{color:var(--danger);border-color:var(--danger)}
+.stamp.blocked{color:var(--teal);border-color:var(--teal)}
+.stamp.caught{color:var(--olive);border-color:var(--olive)}
+.dial{display:flex;align-items:center;gap:10px}
+.dial svg{width:110px;height:64px;flex:none}
+.dial .lbl{font:600 11px var(--mono);letter-spacing:.1em;color:var(--brown);text-transform:uppercase}
+.dial .sc{font-family:var(--disp);font-size:30px;color:var(--brown)}
+.crt{background:#120C06;border:8px solid var(--brown-2);border-radius:10px;color:var(--amber-hi);
+  font:11px/1.5 var(--mono);text-shadow:0 0 6px rgba(255,170,60,.5);padding:10px;position:relative;
+  overflow:hidden;max-height:168px;overflow-y:auto}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(#0000 0 2px,#00000055 2px 3px)}
+.ln{display:flex;gap:6px}.ln .t{color:#9a7a44;min-width:42px}
+.ln.attack .m{color:#ffd79a}.ln.alert .m{color:#ff8a6a}.ln.alert .t{color:#ff8a6a}
+.ln.defence .m{color:#9dffb0}.ln.defence .t{color:#9dffb0}
+.variant{position:absolute;right:16px;top:120px;color:var(--danger);border:5px double var(--danger);
+  border-radius:8px;font:700 26px var(--disp);letter-spacing:.1em;padding:8px 16px;transform:rotate(-10deg);
+  opacity:0;z-index:30;pointer-events:none;text-shadow:0 0 2px rgba(0,0,0,.3)}
+.variant.show{animation:slam .5s cubic-bezier(.2,1.4,.3,1) forwards}
+@keyframes slam{0%{opacity:0;transform:rotate(-10deg) scale(1.6)}100%{opacity:.9;transform:rotate(-10deg) scale(1)}}
+
+/* dock / transport */
+#dock{bottom:40px;left:0;right:0;display:flex;justify-content:center;z-index:10}
+.transport{display:flex;gap:10px;align-items:center;background:var(--walnut);border:2px solid var(--brown-2);
+  border-radius:10px;padding:8px 12px;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.tva-btn{background:var(--amber);color:var(--walnut);border:none;border-radius:6px;box-shadow:0 4px 0 var(--orange);
+  font:700 15px var(--disp);letter-spacing:.08em;text-transform:uppercase;padding:10px 18px;cursor:pointer}
+.tva-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--orange)}
+.ctl{background:var(--brown-2);color:var(--cream);border:1px solid #000;border-radius:5px;height:38px;min-width:38px;
+  padding:0 10px;font:14px var(--mono);cursor:pointer}
+.ctl:active{transform:translateY(2px)}
+input[type=range]{width:190px;accent-color:var(--amber);height:5px}
+.clk2{font:14px var(--mono);color:var(--amber-hi);min-width:58px;text-align:right}
+
+/* seal */
+.seal{filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+#seal-corner{position:fixed;top:92px;right:320px;width:78px;height:78px;z-index:11;pointer-events:none}
+.seal .ring-txt{font:700 11px var(--disp);letter-spacing:.18em;fill:var(--cream)}
+.seal .tick{stroke:var(--amber-hi);stroke-width:2}
+
+/* landing — Case Intake */
+#landing{position:fixed;inset:0;z-index:60;background:
+   radial-gradient(1000px 700px at 50% 30%,#1f160d 0%,#120c06 70%);
+   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:var(--cream);text-align:center;padding:20px}
+#landing .big{font-family:var(--disp);font-size:clamp(48px,11vw,104px);line-height:.92;color:var(--amber-hi);
+  text-shadow:6px 6px 0 var(--orange),0 0 40px rgba(240,168,54,.3)}
+#landing .plq{background:var(--walnut);border:2px solid var(--amber);color:var(--amber-hi);
+  font:600 14px var(--mono);letter-spacing:.2em;padding:8px 16px;border-radius:6px;text-transform:uppercase}
+#landing .seal{width:150px;height:150px}
+#landing .stampmark{color:var(--danger);border:5px double var(--danger);border-radius:8px;
+  font:700 22px var(--disp);letter-spacing:.12em;padding:6px 14px;transform:rotate(-8deg);opacity:.85}
+.banner{position:fixed;inset:auto 0 70px 0;z-index:62;text-align:center;font:13px var(--mono);color:var(--danger)}
+
+
+/* === Tempad side consoles + TVA CRT monitor === */
+:root{
+  --tempad-bg:#111a13;--tempad-panel:#1a281c;--tempad-line:#92713b;
+  --tempad-amber:#f4a344;--tempad-glow:#ffc66e;--tempad-ink:#d9c79b;
+}
+#req,#report{
+  background:
+    linear-gradient(135deg,rgba(244,163,68,.055) 25%,transparent 25%) 0 0/9px 9px,
+    linear-gradient(315deg,rgba(244,163,68,.035) 25%,transparent 25%) 0 0/9px 9px,
+    linear-gradient(145deg,#263326 0%,#101711 68%,#090e0b 100%);
+  color:var(--tempad-ink);border:2px solid var(--tempad-line);border-radius:3px;
+  box-shadow:0 0 0 3px #090d0a,0 10px 28px #000b,inset 0 0 24px #d18b2b12;
+}
+#req:before,#report:before{
+  content:"";position:absolute;inset:5px;pointer-events:none;border:1px solid #c18b3d66;z-index:2;
+}
+#req .plaque,#report .plaque{
+  position:relative;z-index:3;border-radius:0;padding:12px 14px;
+  background:linear-gradient(90deg,#3b452d,#182218 68%,#101610);
+  border-bottom:1px solid var(--tempad-amber);color:var(--tempad-glow);
+  font:600 11px var(--mono);letter-spacing:.15em;text-shadow:0 0 8px #f4a34444;
+}
+#req .body,#report .body{position:relative;z-index:1;background:#0b120dd9;color:var(--tempad-ink)}
+#req .sub,#report .sub{color:#c6b27c;opacity:1;font-size:10px;letter-spacing:.16em}
+#req .card{
+  background:linear-gradient(110deg,#253226,#111b14);border:1px solid #536343;border-radius:2px;
+  color:var(--tempad-ink);box-shadow:inset 0 0 0 1px #0a100b;padding:9px 10px;
+}
+#req .card .nm,#report .comp .nm{color:#f0e3bf;font-family:var(--mono);font-size:12px}
+#req .card .meta{color:#b3b88c;font-size:10px}
+#req .card .hole{background:#0d150f;box-shadow:inset 0 0 0 1px #b38a43}
+#req .card.sel{border-color:var(--tempad-amber);box-shadow:inset 0 0 0 1px #f4a34455,0 0 12px #f4a34420}
+#req .card.sel:after{color:var(--tempad-glow);border-color:var(--tempad-amber);background:#172016}
+#req .form29{background:#080e0a;border:1px solid #8a6a36;border-radius:2px;color:var(--tempad-glow)}
+#report .nixie{background:#050906;border:1px solid #5c6744;border-radius:2px}
+#report .nixie .k{color:#9ca879}
+#report .nixie .v{color:var(--tempad-glow);text-shadow:0 0 9px #f4a34455}
+#report .comp{background:#172319;border:1px solid #596a45;border-radius:2px}
+#report .comp .meta{color:#b8b58b}
+#report .dial .lbl,#report .dial .sc{color:var(--tempad-ink)}
+#report .crt{background:#050906;border:7px solid #756039;border-radius:2px;color:var(--tempad-glow);
+  box-shadow:inset 0 0 20px #f4a34413,0 0 0 1px #1d281b}
+#report .stamp{border-radius:1px}
+#dock .transport{background:linear-gradient(180deg,#1d2a1e,#080d09);border:1px solid #92713b;border-radius:3px}
+#dock .ctl{background:#1b2a1d;border:1px solid #566641;border-radius:2px}
+#dock .tva-btn{border-radius:2px}
+#temporal-screen{
+  position:fixed;z-index:2;pointer-events:none;
+  left:296px;right:326px;top:96px;bottom:82px;
+  border:15px solid #51432d;border-radius:30px;
+  background:linear-gradient(145deg,#b18b4b,#32291c 15%,#090d09 30%,#080c09 70%,#2b2419 90%,#8c6a37);
+  box-shadow:0 0 0 3px #17150f,0 0 0 5px #9d793d66,0 12px 35px #000c,
+    inset 0 0 0 2px #c9a25b66,inset 0 0 25px #000;
+}
+#temporal-screen:before{
+  content:"TEMPORAL LOOM  ·  TVA MONITOR  ·  SIGNAL STABLE";
+  position:absolute;top:-13px;left:22px;right:22px;height:10px;
+  color:#ffc66e;font:8px var(--mono);letter-spacing:.2em;text-align:center;
+}
+#temporal-screen:after{
+  content:"";position:absolute;inset:0;border-radius:12px;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,#ffbd5c0b 3px 4px),
+    radial-gradient(ellipse at center,transparent 48%,#0009 100%);
+  box-shadow:inset 0 0 0 2px #b88c4c55,inset 0 0 26px #f4a34412;
+}
+body:has(#temporal-screen) canvas{clip-path:inset(90px 315px 76px 285px round 18px)}
+@media(max-width:1100px){
+ #temporal-screen{left:285px;right:315px;border-width:10px}
+ body:has(#temporal-screen) canvas{clip-path:inset(90px 305px 76px 275px round 14px)}
+}
+@media(max-width:820px){
+ #temporal-screen{display:none}
+ body:has(#temporal-screen) canvas{clip-path:none}
+ #req,#report{background:#111a13}
+}
+
+@media(max-width:820px){
+  #req,#report{position:fixed;width:auto;left:10px;right:10px;max-height:34%}
+  #req{top:92px}#report{top:auto;bottom:150px}
+  #seal-corner{display:none}
+  input[type=range]{width:34vw}
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<div id="paperfx"></div><div id="vignette"></div>
+<div id="temporal-screen" aria-hidden="true"></div>
+
+<!-- ===== global chrome ===== -->
+<div class="hud" id="topbar">
+  <span class="wm">TIME VARIANCE AUTHORITY</span>
+  <span class="sp"></span>
+  <span class="cf" id="casefile">CASE FILE TVA-000</span>
+  <span class="clk" id="clk">00:00</span>
+</div>
+<div class="hud" id="lamps">
+  <div id="lampsweep"></div>
+  <div class="lamp on" data-l="pwr"><i></i>POWER</div>
+  <div class="lamp" data-l="run"><i></i>RUNNING</div>
+  <div class="lamp" data-l="spoof"><i></i>SENSOR FORGED</div>
+  <div class="lamp" data-l="over"><i></i>OVERLOAD</div>
+  <div class="lamp alert" data-l="alert"><i></i>ALERT</div>
+  <div class="lamp" data-l="variant"><i></i>VARIANT LOGGED</div>
+</div>
+
+<svg id="seal-corner" class="seal" viewBox="0 0 200 200" aria-hidden="true"></svg>
+
+<!-- ===== requisition (STEP 1+2) ===== -->
+<div class="hud tva-panel" id="req">
+  <div class="plaque"><span>REQUISITION · FORM 29-B</span><span class="cls" id="req-cls">CLASSIFIED</span></div>
+  <div class="body">
+    <div class="sub">① Target — infrastructure under test</div>
+    <div class="tiles" id="targets"></div>
+    <div class="sub">② Tampering action</div>
+    <div class="tiles" id="attacks"></div>
+    <div class="sub">Filed injections</div>
+    <div class="form29" id="form29"></div>
+  </div>
+</div>
+
+<!-- ===== damage report (STEP 3) ===== -->
+<div class="hud tva-panel" id="report">
+  <div class="plaque"><span>CASE FILE · DAMAGE REPORT</span><span id="rep-case">TVA-000</span></div>
+  <div class="body">
+    <div class="nixies" id="nixies"></div>
+    <div class="dial">
+      <svg viewBox="0 0 120 70" id="impactdial"></svg>
+      <div><div class="lbl">Impact score</div><div class="sc" id="impactval">0.0</div></div>
+    </div>
+    <div class="sub">Components</div>
+    <div id="components" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="sub">Trace — temporal event log</div>
+    <div class="crt" id="crt"></div>
+  </div>
+</div>
+<div class="variant" id="variantstamp">VARIANT LOGGED</div>
+
+<!-- ===== dock ===== -->
+<div class="hud" id="dock">
+  <div class="transport">
+    <button class="ctl" id="zoomout" title="Zoom out (−)">－</button>
+    <button class="ctl" id="reset" title="Reset view (R)">⟲</button>
+    <button class="ctl" id="zoomin" title="Zoom in (+)">＋</button>
+    <button class="ctl" id="back" title="Step back ([)">⏮</button>
+    <button class="tva-btn" id="exec">▸ EXECUTE TEMPORAL EVENT</button>
+    <button class="ctl" id="fwd" title="Step forward (])">⏭</button>
+    <input type="range" id="range" min="0" max="100" value="0">
+    <button class="ctl" id="speed">1×</button>
+    <span class="clk2" id="clock">0s</span>
+  </div>
+</div>
+<div id="navhint">DRAG to orbit · SCROLL / ＋－ to zoom · CLICK a node or report row to focus · ARROWS to pan · SPACE play</div>
+
+<div class="hud" id="bottombar">
+  <span>CHENNAI INSTITUTE OF TECHNOLOGY · CSBS</span>
+  <span id="amb">AMBIENT 35°C · T +00:00</span>
+</div>
+
+<div class="banner" id="banner" hidden></div>
+
+<!-- ===== landing · Case Intake ===== -->
+<div id="landing">
+  <svg class="seal" viewBox="0 0 200 200"></svg>
+  <div class="big">SPARK<br>TRAIL</div>
+  <div class="plq">CYBER-TO-PHYSICAL IMPACT TRACING UNIT</div>
+  <button class="tva-btn" id="open" style="font-size:18px;padding:14px 28px">[ OPEN NEW CASE FILE ]</button>
+  <div class="stampmark">TEMPORAL INFRASTRUCTURE DIV</div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+let SCENES=[], scene3d, cam, renderer, raycaster, nodes={}, tubes=[], pulses=[], glows=[];
+let cur=null, playing=false, tIdx=0, selected=null, caseNo=0;
+const SPEEDS=[0.5,1,2,4]; let spdI=1;
+
+// ---------- agency seal (SVG) ----------
+function buildSeal(svg){
+  const NS="http://www.w3.org/2000/svg", f=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+  svg.appendChild(f('circle',{cx:100,cy:100,r:96,fill:'#7a5a2a'}));
+  svg.appendChild(f('circle',{cx:100,cy:100,r:92,fill:'none',stroke:'#2B1E12','stroke-width':2}));
+  // 60 tick marks via dashed circle
+  svg.appendChild(f('circle',{cx:100,cy:100,r:86,fill:'none',stroke:'#FFCE6E','stroke-width':4,
+    'stroke-dasharray':'2 7','stroke-dashoffset':1}));
+  svg.appendChild(f('circle',{cx:100,cy:100,r:78,fill:'#120C06'}));
+  const defs=f('defs',{});
+  defs.appendChild(f('path',{id:'arcTop',d:'M28,100 A72,72 0 0 1 172,100'}));
+  defs.appendChild(f('path',{id:'arcBot',d:'M30,104 A70,70 0 0 0 170,104'}));
+  svg.appendChild(defs);
+  const t1=f('text',{class:'ring-txt'}); const tp1=f('textPath',{href:'#arcTop','startOffset':'50%','text-anchor':'middle'});
+  tp1.textContent='★ TIME VARIANCE AUTHORITY ★'; t1.appendChild(tp1); svg.appendChild(t1);
+  const t2=f('text',{class:'ring-txt'}); const tp2=f('textPath',{href:'#arcBot','startOffset':'50%','text-anchor':'middle'});
+  tp2.textContent='TEMPORAL INFRASTRUCTURE DIV'; t2.appendChild(tp2); svg.appendChild(t2);
+  // radiating arcs + lightning bolt
+  for(let i=1;i<=3;i++) svg.appendChild(f('circle',{cx:100,cy:104,r:14*i,fill:'none',stroke:'#F0A836','stroke-width':1.5,opacity:.5}));
+  svg.appendChild(f('path',{d:'M104,74 L88,108 L100,108 L94,132 L116,96 L104,96 Z',fill:'#FFCE6E',
+    stroke:'#D67828','stroke-width':1}));
+}
+$$('.seal').forEach(buildSeal);
+
+// ---------- boot ----------
+async function boot(){
+  try{ SCENES=await (await fetch('./scenes.json')).json(); }
+  catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes.json — serve this page from the same folder as scenes.json.'; return; }
+  buildTargets();
+  initGL(); wireNav(); animate();
+  selectTarget('charger_dcfast','overcurrent_tempspoof');
+  setTimeout(()=>{const h=$('#navhint'); if(h) h.style.opacity='0';}, 9000);
+}
+$('#open').onclick=()=>{ $('#landing').style.display='none'; setPlay(true); execSweep(); };
+
+// ---------- requisition tiles ----------
+function metaFor(s){ return s.target.startsWith('grid_') ? s.grid_type : (s.charger_type+' charger'); }
+function buildTargets(){
+  const seen=new Set(), box=$('#targets');
+  SCENES.forEach(s=>{ if(seen.has(s.target))return; seen.add(s.target);
+    const c=document.createElement('div'); c.className='card'; c.dataset.t=s.target;
+    c.innerHTML=`<span class="hole"></span><div class="nm">${s.target_label}</div><div class="meta">${metaFor(s)}</div>`;
+    c.onclick=()=>selectTarget(s.target); box.appendChild(c);
+  });
+}
+function buildAttacks(tk){
+  const box=$('#attacks'); box.innerHTML='';
+  SCENES.forEach(s=>{ if(s.target!==tk)return;
+    const c=document.createElement('div'); c.className='card'; c.dataset.a=s.attack;
+    c.innerHTML=`<span class="hole"></span><div class="nm">${s.attack_label}</div>`;
+    c.onclick=()=>selectAttack(tk,s.attack); box.appendChild(c);
+  });
+}
+function selectTarget(tk,ak){
+  $$('#targets .card').forEach(c=>c.classList.toggle('sel',c.dataset.t===tk));
+  buildAttacks(tk);
+  const first=ak||SCENES.find(s=>s.target===tk).attack;
+  selectAttack(tk,first);
+}
+function selectAttack(tk,ak){
+  $$('#attacks .card').forEach(c=>c.classList.toggle('sel',c.dataset.a===ak));
+  const i=SCENES.findIndex(s=>s.target===tk && s.attack===ak);
+  if(i>=0){ loadScene(i); setPlay(true); execSweep(); }
+}
+
+// ---------- GL (walnut control-room diorama) ----------
+function initGL(){
+  scene3d=new THREE.Scene();
+  scene3d.fog=new THREE.FogExp2(0x120c06,0.03);
+  cam=new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth,innerHeight);
+  document.body.insertBefore(renderer.domElement, document.body.firstChild);
+  scene3d.add(new THREE.HemisphereLight(0xffd79a, 0x2a1d10, 0.8));   // warm sky / brown ground
+  const key=new THREE.PointLight(0xffd98a,1.7,120); key.position.set(8,16,10); scene3d.add(key);
+  const fill=new THREE.PointLight(0xffb060,0.95,95); fill.position.set(2,6,15); scene3d.add(fill);  // front fill
+  const rim=new THREE.PointLight(0xd67828,0.6,90); rim.position.set(-11,7,-7); scene3d.add(rim);
+  // Intentionally no ground grid: the TVA CRT display stays clean and uncluttered.
+  raycaster=new THREE.Raycaster();
+  addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  installOrbit();
+}
+let orb={az:0.75,el:0.5,r:18,idle:0,drag:false,px:0,py:0,moved:0,
+  pivot:new THREE.Vector3(0,.3,0), tgt:new THREE.Vector3(0,.3,0), tr:18};
+function installOrbit(){
+  const c=renderer.domElement;
+  c.addEventListener('pointerdown',e=>{orb.drag=true;orb.px=e.clientX;orb.py=e.clientY;orb.idle=0;orb.moved=0;});
+  addEventListener('pointerup',e=>{ if(orb.drag && orb.moved<5) pick(e); orb.drag=false; });
+  addEventListener('pointermove',e=>{ if(!orb.drag)return; orb.idle=0;
+    orb.moved+=Math.abs(e.clientX-orb.px)+Math.abs(e.clientY-orb.py);
+    orb.az-=(e.clientX-orb.px)*0.006; orb.el+=(e.clientY-orb.py)*0.006;
+    orb.el=Math.max(0.12,Math.min(1.35,orb.el)); orb.px=e.clientX; orb.py=e.clientY; });
+  c.addEventListener('wheel',e=>{orb.tr=Math.max(6,Math.min(44,orb.tr+e.deltaY*0.012));e.preventDefault();},{passive:false});
+}
+function pick(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(m,cam);
+  const groups=Object.values(nodes).map(n=>n.group);
+  const hit=raycaster.intersectObjects(groups,true)[0];
+  if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o) focusNode(o.userData.node); }
+}
+function focusNode(name){ selected=name; const n=nodes[name]; orb.tgt.copy(n.pos); orb.tr=Math.max(7,n.focus||9); applyFrame(); }
+function resetView(){ selected=null; orb.tgt.set(0,.3,0); orb.tr=cur._overview; }
+function updateCam(dt){
+  orb.idle+=dt;
+  if(!orb.drag && orb.idle>3 && !selected) orb.az+=dt*0.045;
+  orb.pivot.lerp(orb.tgt, Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
+  const r=orb.r,e=orb.el,p=orb.pivot;
+  cam.position.set(p.x+Math.cos(orb.az)*Math.cos(e)*r, p.y+Math.sin(e)*r, p.z+Math.sin(orb.az)*Math.cos(e)*r);
+  cam.lookAt(p);
+}
+
+// ---------- mesh helpers ----------
+function sprite(text,scale=2.6){
+  const cv=document.createElement('canvas'); cv.width=256;cv.height=64;
+  const g=cv.getContext('2d'); g.fillStyle='#FFCE6E'; g.shadowColor='#F0A836'; g.shadowBlur=8;
+  g.font='34px "Oswald","Arial Narrow",sans-serif'; g.textAlign='center'; g.fillText(text,128,44);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  sp.scale.set(scale,scale*0.25,1); return sp;
+}
+function glowSprite(){
+  const cv=document.createElement('canvas'); cv.width=128;cv.height=128;
+  const g=cv.getContext('2d'); const grd=g.createRadialGradient(64,64,0,64,64,64);
+  grd.addColorStop(0,'rgba(255,255,255,0.9)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd; g.fillRect(0,0,128,128);
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+}
+function addGlow(pos,color,size){
+  const s=glowSprite(); s.material.color.set(color); s.scale.set(size,size,1); s.position.copy(pos); s.position.y+=.2;
+  scene3d.add(s); glows.push({sp:s,base:size}); return s;
+}
+function addLabel(group,name,y){
+  const lbl=sprite(name.replace(/charger_0*/,'C').replace('hub_tx','GRID').replace('backend','CSMS'));
+  lbl.position.set(0,y,0); group.add(lbl); return lbl;
+}
+function tag(group,name){ group.traverse(o=>{if(o.isMesh)o.userData.node=name;}); }
+const metal=(c,e=0x1a120a,i=0.25)=>new THREE.MeshStandardMaterial({color:c,emissive:e,emissiveIntensity:i,roughness:0.6,metalness:0.4});
+
+// transformer hub: finned metal box with a gauge face
+function makeTransformer(name,pos,focus){
+  const g=new THREE.Group();
+  const bodyMat=metal(0x5c4226,0x1a120a,0.2);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.5,1.5,1.5),bodyMat); body.position.y=0; g.add(body);
+  for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(1.62,0.08,1.62),metal(0x4a3620));
+    f.position.y=-0.5+i*0.33; g.add(f);}
+  const gauge=new THREE.Mesh(new THREE.CircleGeometry(0.3,20),
+    new THREE.MeshStandardMaterial({color:0xF0E4CA,emissive:0x3a2f18,emissiveIntensity:0.3}));
+  gauge.position.set(0,0.15,0.76); g.add(gauge);
+  const needle=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.26,0.01),new THREE.MeshBasicMaterial({color:0xB03428}));
+  needle.position.set(0,0.15,0.78); needle.geometry.translate(0,0.11,0); g.add(needle);
+  addLabel(g,name,1.5);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:body,mat:bodyMat,needle,pos:pos.clone(),focus:focus||12,base:0x5c4226};
+  return nodes[name];
+}
+
+// EV charger. Pedestals follow the modern DC-fast silhouette (ref image):
+// rounded cream body on a stone slab, big front screen with a green charge bar,
+// signature curved edge light-strip (amber, not blue — TVA), metal centre trim,
+// RFID pad, holstered connector on a coiled cable. AC types stay a wall-box.
+const BEIGE=0xe4d9bd;
+function makeCharger(name,kind,pos,focus){
+  const g=new THREE.Group();
+  const bodyMat=new THREE.MeshStandardMaterial({color:BEIGE,emissive:0x000000,emissiveIntensity:0,roughness:0.45,metalness:0.2});
+  const ac=kind.includes('AC Level'), hpc=kind.includes('HPC')||kind.includes('ultra');
+  const buf=kind.includes('Buffered'), v2g=kind.includes('V2G');
+  let w=0.85,d=0.62,h=2.1;
+  if(ac){ w=0.7;d=0.3;h=1.15; } else if(hpc){ w=0.95;d=0.75;h=2.6; }
+  else if(buf){ w=1.05;d=0.9;h=2.0; } else if(v2g){ w=0.82;d=0.62;h=1.95; }
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bodyMat); body.position.y=h/2; g.add(body);
+  const fz=d/2+0.02;
+
+  if(ac){
+    // compact wall-box: screen + status strip + stubby holster
+    const scr=new THREE.Mesh(new THREE.BoxGeometry(w*0.6,h*0.3,0.03),
+      new THREE.MeshStandardMaterial({color:0x0b0a06,emissive:0x16351f,emissiveIntensity:0.35}));
+    scr.position.set(0,h*0.62,fz); g.add(scr);
+    var led=new THREE.Mesh(new THREE.BoxGeometry(w*0.1,h*0.4,0.02),new THREE.MeshBasicMaterial({color:0x33ff66}));
+    led.position.set(0,h*0.4,fz); g.add(led);
+    const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.18,10),metal(0x0b0a06,0,0));
+    hol.position.set(w*0.5,h*0.5,d*0.1); g.add(hol);
+  } else {
+    // rounded top cap (dome) — approximates the pillow silhouette
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(w*0.5,24,12,0,Math.PI*2,0,Math.PI/2),bodyMat);
+    cap.scale.set(1,0.6,d/w); cap.position.set(0,h,0); g.add(cap);
+    // stone base slab
+    const base=new THREE.Mesh(new THREE.BoxGeometry(w*1.7,0.2,d*1.9),
+      new THREE.MeshStandardMaterial({color:0xb9b1a0,roughness:0.9,metalness:0.05}));
+    base.position.y=0.1; g.add(base);
+    // metal centre trim band
+    const trim=new THREE.Mesh(new THREE.BoxGeometry(w*0.16,h*0.9,0.03),metal(0x9a8f78,0,0,0.5));
+    trim.position.set(-w*0.04,h*0.5,fz); g.add(trim);
+    // big dark front screen + green charge bar + charge meter
+    const screen=new THREE.Mesh(new THREE.BoxGeometry(w*0.52,h*0.3,0.03),
+      new THREE.MeshStandardMaterial({color:0x080a0c,emissive:0x0a1a12,emissiveIntensity:0.4}));
+    screen.position.set(-w*0.14,h*0.74,fz); g.add(screen);
+    const batt=new THREE.Mesh(new THREE.BoxGeometry(w*0.34,h*0.08,0.01),new THREE.MeshBasicMaterial({color:0x33ff7a}));
+    batt.position.set(-w*0.14,h*0.78,fz+0.02); g.add(batt);
+    const bar=new THREE.Mesh(new THREE.BoxGeometry(w*0.34,h*0.03,0.01),new THREE.MeshBasicMaterial({color:0x2a9a52}));
+    bar.position.set(-w*0.14,h*0.69,fz+0.02); g.add(bar);
+    // RFID / tap pad below the screen
+    const pad=new THREE.Mesh(new THREE.BoxGeometry(w*0.14,w*0.14,0.02),metal(0x2a2622,0,0));
+    pad.position.set(-w*0.14,h*0.52,fz); g.add(pad);
+    // SIGNATURE curved edge light-strip down the right side (amber; heat readout)
+    led=new THREE.Mesh(new THREE.BoxGeometry(0.05,h*0.78,0.05),
+      new THREE.MeshBasicMaterial({color:0x33ff66}));
+    led.position.set(w*0.46,h*0.52,fz-0.04); g.add(led);
+    const ledTop=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,w*0.4,8),led.material);
+    ledTop.rotation.z=Math.PI/2; ledTop.position.set(w*0.27,h*0.9,fz-0.04); g.add(ledTop);
+    // holstered connector + coiled cable on the right
+    const holster=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.2,0.14),metal(0x14110a,0,0));
+    holster.position.set(w*0.5+0.02,h*0.58,0); g.add(holster);
+    const coil=new THREE.Mesh(new THREE.TorusGeometry(w*0.26,0.035,10,24),
+      new THREE.MeshStandardMaterial({color:0x14110a,roughness:0.7}));
+    coil.position.set(w*0.62,h*0.4,d*0.1); coil.rotation.y=Math.PI/2; g.add(coil);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.07,0.22,12),
+      new THREE.MeshStandardMaterial({color:0xcfc6b4,roughness:0.5,metalness:0.3}));
+    grip.position.set(w*0.5,h*0.3,d*0.32); grip.rotation.x=Math.PI/2.4; g.add(grip);
+    const plug=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.045,0.1,10),metal(0x0b0a06,0,0));
+    plug.position.set(w*0.5,h*0.22,d*0.45); plug.rotation.x=Math.PI/2.4; g.add(plug);
+    if(hpc){ for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),metal(0x7a6a45));
+      f.position.set(0,h*(0.42+i*0.1),-d*0.22);g.add(f);} }
+  }
+  addLabel(g,name,h+0.5);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:body,mat:bodyMat,led,pos:pos.clone(),focus:focus||9,base:BEIGE};
+  return nodes[name];
+}
+
+// backend = reel-to-reel server rack (OCPP CSMS)
+function makeServer(name,pos,focus){
+  const g=new THREE.Group();
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.0,0.85),metal(0x3a2a1a,0x1a120a,0.15)); cab.position.y=1.0; g.add(cab);
+  for(const yy of [1.5,1.2]){ for(const xx of [-0.25,0.25]){
+    const reel=new THREE.Mesh(new THREE.TorusGeometry(0.16,0.05,10,24),new THREE.MeshStandardMaterial({color:0xF0A836,emissive:0xF0A836,emissiveIntensity:0.5}));
+    reel.position.set(xx,yy,0.44); g.add(reel); } }
+  for(let i=0;i<4;i++){const l=new THREE.Mesh(new THREE.CircleGeometry(0.04,10),new THREE.MeshBasicMaterial({color:0xFFCE6E}));
+    l.position.set(-0.4+i*0.12,0.75,0.44); g.add(l);}
+  addLabel(g,name,2.2);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:cab,mat:cab.material,pos:pos.clone(),focus:focus||11,base:0x3a2a1a};
+  return nodes[name];
+}
+
+function tube(a,b,color=0x5c4226){
+  const g=new THREE.TubeGeometry(new THREE.LineCurve3(a.clone(),b.clone()),1,0.04,8,false);
+  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.3});
+  const t=new THREE.Mesh(g,mat); scene3d.add(t);
+  const rec={mesh:t,mat,a:a.clone(),b:b.clone(),base:new THREE.Color(color),glow:0};
+  tubes.push(rec); return rec;
+}
+function trailTo(to){   // light the link whose far end is this node (the spark trail)
+  let best=null,bd=1e9;
+  tubes.forEach(r=>{const d=r.b.distanceTo(to); if(d<bd){bd=d;best=r;}});
+  if(best&&bd<1.5) best.glow=1;
+}
+function clearScene(){
+  Object.values(nodes).forEach(n=>scene3d.remove(n.group));
+  tubes.forEach(t=>scene3d.remove(t.mesh)); pulses.forEach(p=>scene3d.remove(p.mesh)); glows.forEach(g=>scene3d.remove(g.sp));
+  (cur&&cur._decor||[]).forEach(d=>scene3d.remove(d));
+  nodes={};tubes=[];pulses=[];glows=[];
+}
+function buildScene(s){
+  clearScene(); s._decor=[];
+  const cns=s.chargers, n=cns.length;
+  makeServer('backend',new THREE.Vector3(-8,0,0),11);
+  makeTransformer('hub_tx',new THREE.Vector3(0,0,0),12);
+  tube(nodes['backend'].pos.clone().setY(0.6),nodes['hub_tx'].pos,0x5c4226);
+  decorateGrid(s.grid_type,s);
+  const R=Math.max(4,n*0.42);
+  cns.forEach((cn,i)=>{
+    const ang=n===1?0:(i/(n-1)-0.5)*Math.PI*(n>10?1.4:0.95);
+    const pos=new THREE.Vector3(Math.cos(ang)*R+5, 0, Math.sin(ang)*R);
+    makeCharger(cn,s.charger_type,pos,8);
+    tube(nodes['hub_tx'].pos,pos,0x4a3a1c);
+    addGlow(pos,0xF0A836,0.01);
+  });
+  s._overview=Math.max(15,10+n*0.5); orb.r=s._overview; orb.tr=s._overview;
+  orb.tgt.set(0,.3,0); orb.pivot.set(0,.3,0); selected=null;
+}
+function decorateGrid(kind,s){
+  const mk=(m)=>{scene3d.add(m);s._decor.push(m);return m;};
+  if(kind.includes('Islanded')||kind.includes('BESS')){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,0.05,8,48),
+      new THREE.MeshStandardMaterial({color:0xF0A836,emissive:0xF0A836,emissiveIntensity:0.6}));
+    ring.rotation.x=Math.PI/2; ring.position.y=-1.5; mk(ring); s._ring=ring;
+  }
+  if(kind.includes('BESS')){
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.7),metal(0x787842,0x2a3010,0.4));
+    b.position.set(0,0,-2.2); mk(b); mk((()=>{const l=sprite('BESS',1.8);l.position.set(0,1.1,-2.2);return l;})());
+  }
+  if(kind.includes('LV distribution')){
+    const pv=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.0),metal(0x467874,0x15302e,0.4));
+    pv.material.side=THREE.DoubleSide; pv.rotation.x=-Math.PI/3; pv.position.set(0,0.2,-2.4);
+    mk(pv); mk((()=>{const l=sprite('PV',1.5);l.position.set(0,1.1,-2.4);return l;})());
+  }
+}
+
+// ---------- heat ramp (teal -> amber -> danger) ----------
+function heat(T){
+  const x=Math.max(0,Math.min(1,(T-35)/(60-35))), c=new THREE.Color();
+  if(x<0.5)c.lerpColors(new THREE.Color(0x467874),new THREE.Color(0xF0A836),x*2);
+  else c.lerpColors(new THREE.Color(0xF0A836),new THREE.Color(0xB03428),(x-0.5)*2);
+  return c;
+}
+function srcOf(m){ return (m.node&&m.node.includes('backend'))?'backend':'hub_tx'; }
+function spawnPulse(from,to){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.24,14,14),new THREE.MeshBasicMaterial({color:0xFFCE6E}));
+  const gl=addGlow(nodes[from].pos,0xFFB000,2.4);
+  scene3d.add(m); pulses.push({mesh:m,glow:gl,from:nodes[from].pos.clone(),to:nodes[to].pos.clone(),u:0});
+  trailTo(nodes[to].pos);   // ignite the spark trail along the traversed link
+}
+
+// ---------- per-frame ----------
+function applyFrame(){
+  if(!cur)return; const fr=cur.timeline[tIdx]; if(!fr)return;
+  cur.chargers.forEach((cn,i)=>{
+    const st=fr.chargers[cn]; if(!st||!nodes[cn])return;
+    const col=heat(st.temp), hot=Math.max(0,Math.min(1,(st.temp-40)/18));
+    nodes[cn].mat.emissive.copy(col); nodes[cn].mat.emissiveIntensity=0.12+0.8*hot;
+    if(nodes[cn].led) nodes[cn].led.material.color.set(new THREE.Color(0x33ff66).lerp(new THREE.Color(0xB03428),hot));
+    const gl=glows[i]; if(gl){gl.sp.material.color.copy(col); gl.sp.scale.setScalar(0.01+hot*2.6);}
+    if(selected===cn) nodes[cn].mesh.scale.setScalar(1.12); else nodes[cn].mesh.scale.setScalar(1);
+  });
+  const hub=nodes['hub_tx'];
+  if(hub){ const over=Math.max(0,Math.min(1,(fr.load-100)/80));
+    const c=new THREE.Color(0x5c4226).lerp(new THREE.Color(0xB03428),over);
+    hub.mat.color.copy(c); hub.mat.emissive.copy(c); hub.mat.emissiveIntensity=0.2+over*0.9;
+    if(hub.needle) hub.needle.rotation.z=-Math.min(1.4,(fr.load/150)*1.4)+0.7;
+  }
+  if(cur._ring){ const f=fr.freq; if(f!=null){ const dev=Math.min(1,Math.abs(f-50)/1.5);
+    cur._ring.material.color.set(new THREE.Color(0xF0A836).lerp(new THREE.Color(0xB03428),dev));
+    cur._ring.material.emissiveIntensity=0.5+dev; } }
+  renderReport(fr);
+  updateLamps(fr);
+}
+let lastT=-1;
+function fireMarkers(t){ cur.markers.forEach(m=>{ if(m.t<=t&&m.t>lastT) spawnPulse(srcOf(m),cur.chargers[0]); }); lastT=t; }
+
+// ---------- damage report ----------
+const mmss=s=>{s=Math.max(0,Math.round(s||0));return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;};
+const nixie=(k,v,u='',hot=false)=>`<div class="nixie ${hot?'hot':''}"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:''}</div></div>`;
+function stampFor(kind,val){
+  let s='cleared',txt='CLEARED';
+  if(kind==='temp'){ if(val>=55){s='damaged';txt='DAMAGED';} else if(val>=45){s='stressed';txt='STRESSED';} }
+  if(kind==='load'){ if(val>=130){s='damaged';txt='DAMAGED';} else if(val>=100){s='stressed';txt='STRESSED';} }
+  return `<span class="stamp ${s}">${txt}</span>`;
+}
+function renderReport(fr){
+  const sc=cur.score;
+  const peakT=sc.peak_pack_temp_C, load=sc.peak_transformer_load_pct;
+  let nx=nixie('Peak pack temp',peakT,'°C',peakT>=50)+
+         nixie('Transformer load',load,'%',load>=100)+
+         nixie('Time to impact', sc.time_to_impact_s!=null?mmss(sc.time_to_impact_s):'--:--')+
+         nixie('Detection delay', sc.detection_delay_s!=null?sc.detection_delay_s+'s':'—');
+  if(sc.peak_coolant_temp_C!=null) nx+=nixie('Coolant peak',sc.peak_coolant_temp_C,'°C',sc.peak_coolant_temp_C>=50);
+  if(fr.freq!=null) nx+=nixie('Frequency',fr.freq,'Hz',(fr.freq<49.5||fr.freq>50.5));
+  if(fr.volt!=null) nx+=nixie('Bus voltage',fr.volt,'%',(fr.volt<94||fr.volt>106));
+  nx+=nixie('Prop depth', sc.max_propagation_depth!=null?sc.max_propagation_depth:'—');
+  $('#nixies').innerHTML=nx;
+
+  // impact dial
+  $('#impactval').textContent=(+sc.impact_score).toFixed(1);
+  drawDial(+sc.impact_score);
+
+  // components
+  const gridScene=cur.target&&cur.target.startsWith('grid_');
+  let comps='';
+  comps+=`<div class="comp" data-node="backend"><span class="nm">CSMS backend</span><span class="meta">OCPP link</span>${
+    (cur.attack&&cur.attack.includes('loadshed'))?'<span class="stamp stressed">STRESSED</span>':'<span class="stamp cleared">CLEARED</span>'}</div>`;
+  comps+=`<div class="comp" data-node="hub_tx"><span class="nm">GRID transformer</span><span class="meta">${load}%</span>${stampFor('load',load)}</div>`;
+  comps+=`<div class="comp" data-node="${cur.chargers[0]}"><span class="nm">${gridScene?cur.chargers.length+'× chargers':'Charger C1'}</span><span class="meta">${peakT}°C</span>${stampFor('temp',peakT)}</div>`;
+  if(sc.proxy_blocked)
+    comps+=`<div class="comp"><span class="nm">Zero-Trust proxy</span><span class="meta">${sc.proxy_rejects} refused</span><span class="stamp blocked">BLOCKED</span></div>`;
+  if(sc.fusion_alert_t_s!=null)
+    comps+=`<div class="comp"><span class="nm">Sensor fusion</span><span class="meta">+${sc.fusion_alert_t_s|0}s</span><span class="stamp caught">CAUGHT</span></div>`;
+  $('#components').innerHTML=comps;
+
+  // CRT trace log
+  const t=fr.t, shown=cur.markers.filter(m=>m.t<=t).slice(-6).reverse();
+  let rows=shown.map(m=>`<div class="ln ${m.type}"><span class="t">+${m.t|0}s</span><span class="m">${m.node} · ${m.label}</span></div>`).join('');
+  const c0=fr.chargers[cur.chargers[0]];
+  if(c0){ const spoof=Math.abs(c0.reported-c0.temp)>1, vbad=fr.volt!=null&&(fr.volt<94||fr.volt>106);
+    rows=`<div class="ln"><span class="t">+${t|0}s</span><span class="m">${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A</span></div>`+
+      (c0.coolant!=null?`<div class="ln"><span class="t">+${t|0}s</span><span class="m">coolant ${c0.coolant}°C</span></div>`:'')+
+      (fr.volt!=null?`<div class="ln ${vbad?'alert':''}"><span class="t">+${t|0}s</span><span class="m">bus ${fr.volt}%${fr.freq!=null?` · ${fr.freq}Hz`:''} · load ${fr.load}%</span></div>`:'')+
+      (spoof?`<div class="ln attack"><span class="t">+${t|0}s</span><span class="m">reported ${c0.reported}°C — FORGED</span></div>`:'')+rows;
+  }
+  $('#crt').innerHTML=rows||'<div class="ln"><span class="m">awaiting temporal event…</span></div>';
+}
+function drawDial(v){
+  const svg=$('#impactdial'); const ang=Math.PI*(1 - Math.min(10,Math.max(0,v))/10);
+  const cx=60,cy=62,r=46, x=cx+r*Math.cos(ang), y=cy-r*Math.sin(ang);
+  svg.innerHTML=`<path d="M14,62 A46,46 0 0 1 106,62" fill="none" stroke="#3A2A1A" stroke-width="7"/>
+    <path d="M14,62 A46,46 0 0 1 106,62" fill="none" stroke="#F0A836" stroke-width="7"
+      stroke-dasharray="${Math.PI*r}" stroke-dashoffset="${Math.PI*r*(1-Math.min(10,v)/10)}"/>
+    <line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#B03428" stroke-width="3"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#2B1E12"/>`;
+}
+function updateLamps(fr){
+  const sc=cur.score, t=fr.t;
+  const set=(l,on)=>$(`.lamp[data-l="${l}"]`).classList.toggle('on',!!on);
+  set('run',playing);
+  const c0=fr.chargers[cur.chargers[0]];
+  set('spoof', c0 && Math.abs(c0.reported-c0.temp)>1);
+  set('over', fr.load>100);
+  set('alert', sc.monitor_alert_t_s!=null && t>=sc.monitor_alert_t_s);
+  set('variant', tIdx>=cur.timeline.length-1);
+}
+
+// ---------- transport ----------
+function loadScene(i){
+  cur=SCENES[i]; tIdx=0; lastT=-1; caseNo++;
+  const cf='TVA-'+String(100+caseNo).padStart(3,'0');
+  $('#casefile').textContent='CASE FILE '+cf; $('#rep-case').textContent=cf;
+  $('#req-cls').textContent = (cur.attack&&cur.attack.includes('spoof'))?'FORGED':'CLASSIFIED';
+  $('#variantstamp').classList.remove('show');
+  $('#range').max=cur.timeline.length-1; $('#range').value=0;
+  buildFormList();
+  buildScene(cur); applyFrame(); updateClock();
+}
+function buildFormList(){
+  const atks=cur.markers.filter(m=>m.type==='attack');
+  let txt=`TARGET  <b>${cur.target_label}</b>\nACTION  <b>${cur.attack_label}</b>\n`;
+  if(atks.length){ txt+=`\nINJECTIONS:\n`+atks.map(m=>`  · ${m.node.replace('cyber.','')} ${m.field} = ${m.label}`).join('\n'); }
+  else txt+=`\n(no injection markers)`;
+  $('#form29').textContent=txt;
+}
+function updateClock(){ const t=Math.round(cur.timeline[tIdx].t);
+  $('#clock').textContent=t+'s'; $('#clk').textContent=mmss(t); $('#amb').textContent=`AMBIENT 35°C · T +${mmss(t)}`; }
+function setPlay(p){ playing=p; $('#exec').textContent=p?'❚❚ RUNNING':'▸ EXECUTE TEMPORAL EVENT';
+  document.body.classList.toggle('running',p); }
+function execSweep(){ const s=$('#lampsweep'); s.classList.remove('go'); void s.offsetWidth; s.classList.add('go'); }
+$('#exec').onclick=()=>{ if(tIdx>=cur.timeline.length-1){tIdx=0;lastT=-1;$('#variantstamp').classList.remove('show');} setPlay(!playing); if(playing)execSweep(); };
+$('#reset').onclick=resetView;
+$('#back').onclick=()=>{setPlay(false);tIdx=Math.max(0,tIdx-1);$('#range').value=tIdx;lastT=cur.timeline[tIdx].t;applyFrame();updateClock();};
+$('#fwd').onclick =()=>{setPlay(false);tIdx=Math.min(cur.timeline.length-1,tIdx+1);$('#range').value=tIdx;fireMarkers(cur.timeline[tIdx].t);applyFrame();updateClock();};
+$('#speed').onclick=()=>{spdI=(spdI+1)%SPEEDS.length;$('#speed').textContent=SPEEDS[spdI]+'×';};
+$('#range').oninput=e=>{setPlay(false);tIdx=+e.target.value;lastT=cur.timeline[tIdx].t;applyFrame();updateClock();};
+$('#zoomin').onclick =()=>{orb.tr=Math.max(6,orb.tr-2);};
+$('#zoomout').onclick=()=>{orb.tr=Math.min(44,orb.tr+2);};
+
+// ---------- navigation: click report rows to fly to a node, + keyboard ----------
+function wireNav(){
+  $('#components').addEventListener('click',e=>{
+    const row=e.target.closest('.comp[data-node]');
+    if(row && nodes[row.dataset.node]) focusNode(row.dataset.node);
+  });
+  addEventListener('keydown',e=>{
+    const tag=(e.target.tagName||''); if(tag==='SELECT'||tag==='INPUT'||tag==='TEXTAREA')return;
+    const k=e.key; let h=true;
+    if(k==='ArrowLeft') orb.az-=0.14; else if(k==='ArrowRight') orb.az+=0.14;
+    else if(k==='ArrowUp') orb.el=Math.min(1.35,orb.el+0.09);
+    else if(k==='ArrowDown') orb.el=Math.max(0.12,orb.el-0.09);
+    else if(k==='+'||k==='=') orb.tr=Math.max(6,orb.tr-2);
+    else if(k==='-'||k==='_') orb.tr=Math.min(44,orb.tr+2);
+    else if(k==='r'||k==='R') resetView();
+    else if(k===' ') $('#exec').click();
+    else if(k==='[') $('#back').click();
+    else if(k===']') $('#fwd').click();
+    else h=false;
+    if(h){ orb.idle=0; e.preventDefault(); }
+  });
+}
+
+let last=performance.now(),acc=0;
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now(),dt=(now-last)/1000; last=now;
+  updateCam(dt);
+  if(cur){
+    if(playing){ acc+=dt*SPEEDS[spdI];
+      if(acc>0.06){ acc=0; tIdx=Math.min(tIdx+1,cur.timeline.length-1); $('#range').value=tIdx; updateClock();
+        if(tIdx>=cur.timeline.length-1){ setPlay(false);
+          $('#variantstamp').textContent=cur.score.proxy_blocked?'THREAT CONTAINED':'VARIANT LOGGED';
+          $('#variantstamp').classList.add('show'); }
+        fireMarkers(cur.timeline[tIdx].t); applyFrame(); }
+    }
+    for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.8;
+      if(p.u>=1){ scene3d.remove(p.mesh); scene3d.remove(p.glow.sp); glows=glows.filter(g=>g!==p.glow); pulses.splice(i,1); continue; }
+      p.mesh.position.lerpVectors(p.from,p.to,p.u); p.glow.sp.position.copy(p.mesh.position);
+      p.mesh.material.color.setHSL(0.09,1,0.5+0.2*Math.sin(p.u*10)); }
+    // spark-trail: links fade from bright amber back to base over ~1.5s
+    const amber=new THREE.Color(0xFFB000);
+    for(const r of tubes){ if(r.glow>0){ r.glow=Math.max(0,r.glow-dt*0.7);
+      r.mat.color.copy(r.base).lerp(amber,r.glow); r.mat.emissive.copy(r.mat.color);
+      r.mat.emissiveIntensity=0.3+r.glow*1.4; } }
+  }
+  renderer.render(scene3d,cam);
+}
+boot();
+</script>

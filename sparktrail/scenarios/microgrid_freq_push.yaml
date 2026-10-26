@@ -1,0 +1,7 @@
+name: Islanded microgrid - inverter frequency setpoint pushed to 51.5 Hz
+ambient_C: 35
+run_s: 300
+target: { type: charger_dcfast, limits: { normal_A: 125, max_A: 250 } }
+hub:    { grid_type: islanded, chargers: 6, transformer_kVA: 800, impedance_pu: 0.05, inertia_H: 3.5 }
+attacks:
+  - { id: A-FREQ, entry_point: cyber.inverter_link, mechanism: command_override, field: inverter.freq_setpoint_Hz, to: 51.5, start_s: 30 }
