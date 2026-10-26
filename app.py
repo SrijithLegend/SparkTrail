@@ -100,3 +100,29 @@ p = PhysicsProxy(thermal_limit_A=160.0)
 st.caption(f"Zero-Trust proxy: {current} A "
            + ("within limits." if current <= p.thermal_limit_A
               else f"would be CLAMPED to {p.thermal_limit_A:.0f} A."))
+
+# ----------------------------------------------------------------- multi-domain
+st.divider()
+st.subheader("Multi-domain playground (SPARKTRAIL_MULTIDOMAIN)")
+from sparktrail.domains import REGISTRY  # noqa: E402
+from sparktrail.domains.base import CATEGORIES  # noqa: E402
+
+dcol1, dcol2 = st.columns([1, 2])
+dom = dcol1.selectbox("Domain", list(REGISTRY), format_func=lambda k: REGISTRY[k].title)
+D = REGISTRY[dom]
+scn = dcol2.selectbox("Manipulation", D.scenarios(),
+                      format_func=lambda s: f"{s.title}  ·  {s.mitre_ics}")
+u = D.variant(scn, defended=False)
+d = D.variant(scn, defended=True)
+_defense = CATEGORIES.get(scn.category, ("", "", "", "—"))[3]
+st.caption(f"Prior occurrence: **{scn.incident_ref}** · defense: {_defense}")
+rows = []
+for m in D.metrics:
+    rows.append({"metric": m.label, "unit": m.unit, "limit": m.limit,
+                 "undefended peak": u["peaks"][m.key], "defended peak": d["peaks"][m.key]})
+st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+uf, df = u["flags"], d["flags"]
+if uf["variance_at"] is not None:
+    st.error(f"Undefended: VARIANCE at T+{uf['variance_at']:.0f}s.")
+if df["proxy_blocked"] or df["fusion_caught"] and df["variance_at"] is None:
+    st.success("Defended: proxy/fusion kept the process in band.")

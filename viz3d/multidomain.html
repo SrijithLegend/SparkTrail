@@ -105,6 +105,7 @@ input[type=range]{width:180px;accent-color:var(--amber)}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js" onerror="void 0"></script>
 
 <div id="paperfx"></div><div id="vig"></div>
 
@@ -276,6 +277,11 @@ function buildScene(){
     g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S); scene3d.add(g);
     g.traverse(o=>{if(o.isMesh)o.userData.node=n.id;});
     nodeMeshes[n.id]={group:g,mesh,mat,pos:g.position.clone(),kind:n.kind};
+    // optional glTF model (§5): drops in over the primitive, which stays as fallback
+    const mp=DOM.models&&DOM.models[n.id];
+    if(mp&&THREE.GLTFLoader){ new THREE.GLTFLoader().load(mp,gl=>{
+      const o=gl.scene; o.traverse(x=>{if(x.isMesh)x.userData.node=n.id;}); g.add(o); mesh.visible=false;
+    },undefined,()=>{}); }
   });
   DOM.links.forEach(([a,b])=>{ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
     const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,0.04,8,false);

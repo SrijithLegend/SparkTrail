@@ -111,6 +111,44 @@ build) are wired in:
 | `microgrid_bess_freq.yaml` | BESS · same push, BESS holds it to ~50.9 Hz. |
 | `microgrid_overvoltage_drift.yaml` | Islanded · voltage setpoint drifts up to ~110 % (#6). |
 
+## Multi-domain expansion (`sparktrail/domains/`, `viz3d/multidomain.html`)
+
+The EV engine generalizes to the whole class of cyber-physical infrastructure
+(`SPARKTRAIL_MULTIDOMAIN.md`). A `Domain` is a set of nodes + links, a few
+consequence metrics, and a handful of **abstract-injection** scenarios.
+
+```bash
+python -m sparktrail.domains        # build viz3d/scenes/<domain>.json + index.json
+cd viz3d && python -m http.server   # open multidomain.html
+python test_domains.py              # domain self-checks
+```
+
+- **Six playable domains** (`domains/`): EV charging hub (wraps the real engine),
+  power substation / feeder, water treatment, manufacturing robot cell (unoccupied),
+  building HVAC / cold storage, pumping / pipeline station. OT / equipment only —
+  the consequence lands on *process and equipment, never a human body* (§0).
+- **Manipulation menu = MITRE ATT&CK for ICS categories** (`base.CATEGORIES`):
+  push a setpoint out of range (T0836), freeze/fake a sensor (T0856), broadcast a
+  mass command (T0831), suppress a protection signal (T0878), replay/delay (T0857).
+  Each scenario is anchored to a **public incident** (Ukraine 2015/16, Oldsmar 2021,
+  Colonial 2021, …). The "attack" is only an out-of-range value on a modelled link —
+  no exploit, no protocol, no device command.
+- **Uniform trace** → the viewer colours nodes by propagation depth (root red →
+  cascade dim), climbs Nixie consequence meters to their red line, runs spark-trail
+  beads along links, and shows **defended vs undefended** peaks side by side (proxy
+  *prevents*; fusion *detects*).
+- **§10 case-study gallery** — a cited "Prior Occurrences" wall (Stuxnet, Jeep,
+  GPS spoofing, medical devices) proving the pattern generalizes. Human-harm domains
+  are **cited, not simulated** — no mechanism, no harm animation.
+- **3D models (§5):** nodes render from primitives with no downloads; drop a
+  licence-clean `.glb` into `viz3d/models/<domain>/` and set the domain's
+  `scene_models` to upgrade (see `viz3d/models/ATTRIBUTION.md`).
+
+Multi-domain honest limits (say these first): every domain model is **lumped /
+first-order** — directionally right, not engineering-accurate; the defenses share
+the model's form so catch/block times are optimistic; domains are **archetypes**,
+not any specific facility; the gallery is **reporting, not simulation**.
+
 ## Honesty in the UI
 Every physical number is flagged `modelled` (from a real model) or
 `illustrative` (hand-set). The monitor uses a *different* R/C from the plant,
