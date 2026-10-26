@@ -52,8 +52,11 @@ canvas{display:block;position:fixed;inset:0}
 .badge{font-size:13px;letter-spacing:.04em;padding:2px 8px;border-radius:3px;border:1px solid var(--edge2);
   color:var(--muted);background:#16110880}
 .badge b{color:var(--fg);font-weight:400}
-select{background:#160f06;color:var(--fg);border:1px solid var(--edge2);border-radius:3px;
-  padding:6px 10px;font-family:var(--font);font-size:16px;margin-left:auto;max-width:56vw}
+.picker{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.pk-lbl{font-family:var(--font);font-size:16px;letter-spacing:.1em;color:var(--accent);
+  text-shadow:0 0 8px rgba(255,176,0,.5)}
+select{background:#160f06;color:var(--fg);border:2px solid var(--accent);border-radius:3px;
+  box-shadow:0 0 10px rgba(255,176,0,.35);padding:6px 10px;font-family:var(--font);font-size:16px;max-width:42vw}
 
 /* right trace rail */
 #rail{top:62px;right:max(12px,env(safe-area-inset-right,0));width:306px;max-width:calc(100vw - 24px);
@@ -123,10 +126,13 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:5px}
     <h1><b>Spark</b>Trail · Tracer</h1>
     <div class="badges" id="badges"></div>
   </div>
-  <select id="scene-select"></select>
+  <div class="picker">
+    <span class="pk-lbl">TARGET</span><select id="target-select"></select>
+    <span class="pk-lbl">ATTACK</span><select id="attack-select"></select>
+  </div>
 </div>
 
-<div class="hint" id="hint">drag to orbit · scroll to zoom · click a node to focus</div>
+<div class="hint" id="hint">pick a TARGET then an ATTACK (top-right) · drag to orbit · scroll to zoom · click a node to focus</div>
 
 <div class="hud glass" id="rail">
   <div class="tiles" id="tiles"></div>
@@ -167,11 +173,34 @@ const SPEEDS=[0.5,1,2,4]; let spdI=1;
 async function boot(){
   try{ SCENES=await (await fetch('./scenes.json')).json(); }
   catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes.json — serve this page from the same folder as scenes.json.'; return; }
-  const sel=$('#scene-select');
-  SCENES.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=s.name;sel.appendChild(o);});
-  sel.onchange=()=>loadScene(+sel.value);
-  initGL(); loadScene(0); animate();
+  buildPickers();
+  initGL(); selectCell('charger_dcfast','overcurrent_tempspoof'); animate();
   setTimeout(()=>{$('#hint').style.opacity='0';},5000);
+}
+
+// ---------- target × attack pickers ----------
+const opt=(v,t)=>{const o=document.createElement('option');o.value=v;o.textContent=t;return o;};
+function buildPickers(){
+  const ts=$('#target-select'), seen=new Set();
+  SCENES.forEach(s=>{ if(!seen.has(s.target)){seen.add(s.target); ts.appendChild(opt(s.target,s.target_label));} });
+  ts.onchange=()=>{ fillAttacks(ts.value); loadCurrent(); };
+  $('#attack-select').onchange=loadCurrent;
+}
+function fillAttacks(tk){
+  const as=$('#attack-select'); as.innerHTML='';
+  SCENES.forEach((s,i)=>{ if(s.target===tk) as.appendChild(opt(s.attack, s.attack_label)); });
+}
+function loadCurrent(){
+  const tk=$('#target-select').value, ak=$('#attack-select').value;
+  const i=SCENES.findIndex(s=>s.target===tk && s.attack===ak);
+  if(i>=0) loadScene(i);
+}
+function selectCell(tk,ak){
+  const i0=SCENES.findIndex(s=>s.target===tk)>=0?tk:SCENES[0].target;
+  $('#target-select').value=i0; fillAttacks(i0);
+  const as=$('#attack-select');
+  if([...as.options].some(o=>o.value===ak)) as.value=ak;
+  loadCurrent();
 }
 
 // ---------- GL ----------

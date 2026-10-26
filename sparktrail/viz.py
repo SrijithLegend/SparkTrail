@@ -92,15 +92,95 @@ def build_scenes(scenario_paths: list[str], step_s: float = 5.0) -> list[dict]:
     return out
 
 
+# ---------------------------------------------------------------------------
+# Composable grid: target x attack. Two dropdowns in the viewer pick a cell.
+# Generated in code (not 38 near-identical YAMLs) so every charger/grid type
+# crosses every attack that is meaningful for it. Each tuple is
+# (target_key, target_label, attack_key, attack_label, cfg).
+# ---------------------------------------------------------------------------
+from .targets.charger import CHARGER_SPECS   # noqa: E402
+from .targets.microgrid import GRID_SPECS    # noqa: E402
+
+_MON = {"physics_aware": {"divergence_C": 3, "model": {"C": 430_000.0, "R": 0.11}}}
+
+
+def _charger_combos():
+    out = []
+    for ct, spec in CHARGER_SPECS.items():
+        base = {"ambient_C": 35, "dt_s": 1.0, "monitor": _MON,
+                "target": {"type": ct, "limits": {"normal_A": spec.normal_A, "max_A": spec.max_A}},
+                "hub": {"grid_type": "single_feeder", "chargers": 1,
+                        "transformer_kVA": 500, "impedance_pu": 0.05}}
+        oc = dict(id="A-OC", entry_point="cyber.backend_link", mechanism="command_override",
+                  field="charging_profile.limit_A", to=spec.max_A, start_s=60)
+        spoof = dict(id="A-SPOOF", entry_point="cyber.sensor_bus", mechanism="sensor_spoof",
+                     field="sensor.pack_temp_C", hold_value=30, start_s=60)
+        out.append((ct, spec.kind, "overcurrent", "Overcurrent — force limit to max",
+                    {**base, "run_s": 2400, "name": f"{spec.kind} — overcurrent", "attacks": [oc]}))
+        out.append((ct, spec.kind, "overcurrent_tempspoof", "Overcurrent + temp spoof (blinds BMS)",
+                    {**base, "run_s": 2400, "name": f"{spec.kind} — overcurrent + temp spoof",
+                     "attacks": [oc, spoof]}))
+        out.append((ct, spec.kind, "cooling_suppression", "Cooling suppression (temp read low)",
+                    {**base, "run_s": 5400, "name": f"{spec.kind} — cooling suppression",
+                     "attacks": [spoof]}))
+        if spec.bidirectional:
+            out.append((ct, spec.kind, "forced_export", "Vehicle-link forced into export",
+                        {**base, "run_s": 1800, "name": f"{spec.kind} — forced export",
+                         "attacks": [dict(id="A-EXP", entry_point="cyber.vehicle_link",
+                                          mechanism="command_override", field="vehicle.requested_A",
+                                          to=-spec.max_A, start_s=60)]}))
+    return out
+
+
+def _grid_combos():
+    out = []
+    for gt, gspec in GRID_SPECS.items():
+        def base(n, kVA=690, **hub):
+            return {"ambient_C": 35, "dt_s": 1.0, "monitor": _MON,
+                    "target": {"type": "charger_dcfast", "limits": {"normal_A": 125, "max_A": 250}},
+                    "hub": {"grid_type": gt, "chargers": n, "transformer_kVA": kVA,
+                            "impedance_pu": 0.05, **hub}}
+        mass = dict(id="A-MASS", entry_point="cyber.hub_controller", mechanism="mass_command",
+                    field="charging_profile.limit_A", to=250, start_s=30)
+        tk = f"grid_{gt}"
+        out.append((tk, gspec.kind, "mass_maxpower", "Mass max-power command → overload",
+                    {**base(12), "run_s": 600, "name": f"{gspec.kind} — mass max-power", "attacks": [mass]}))
+        out.append((tk, gspec.kind, "loadshed_suppression", "Load-shed dropped → overload pinned",
+                    {**base(12), "run_s": 600, "name": f"{gspec.kind} — load-shed suppression",
+                     "attacks": [mass, dict(id="A-SHED", entry_point="cyber.hub_controller",
+                                            mechanism="dos_blackhole", field="hub.load_shed", start_s=0)]}))
+        out.append((tk, gspec.kind, "loadshed_desync", "Load-shed signal arrives 90 s late",
+                    {**base(12), "run_s": 600, "name": f"{gspec.kind} — load-shed desync",
+                     "attacks": [mass, dict(id="A-DES", entry_point="cyber.hub_controller",
+                                            mechanism="desync", field="hub.load_shed", delay_s=90, start_s=0)]}))
+        if not gspec.grid_tied:   # islanded / BESS carry frequency + regulated voltage
+            out.append((tk, gspec.kind, "freq_push", "Inverter frequency setpoint pushed to 51.5 Hz",
+                        {**base(6, kVA=800, inertia_H=3.5), "run_s": 300,
+                         "name": f"{gspec.kind} — frequency push",
+                         "attacks": [dict(id="A-FREQ", entry_point="cyber.inverter_link",
+                                          mechanism="command_override", field="inverter.freq_setpoint_Hz",
+                                          to=51.5, start_s=30)]}))
+            out.append((tk, gspec.kind, "overvoltage_drift", "Inverter voltage setpoint drifts up",
+                        {**base(4, kVA=800), "run_s": 600, "name": f"{gspec.kind} — overvoltage drift",
+                         "attacks": [dict(id="A-VD", entry_point="cyber.inverter_link",
+                                          mechanism="setpoint_drift", field="inverter.v_setpoint_pu",
+                                          rate_per_s=0.0002, start_s=30)]}))
+    return out
+
+
+def build_grid(step_s: float = 5.0) -> list[dict]:
+    scenes = []
+    for tkey, tlabel, akey, alabel, cfg in _charger_combos() + _grid_combos():
+        sc = frames(scenario.run(cfg), step_s=step_s)
+        sc.update(target=tkey, target_label=tlabel, attack=akey, attack_label=alabel)
+        scenes.append(sc)
+    return scenes
+
+
 if __name__ == "__main__":
-    import sys
-    import glob
-    # headline first, then the rest sorted for a stable order
-    head = "scenarios/dcfast_overcurrent_tempspoof.yaml"
-    paths = sys.argv[1:] or [head] + sorted(p.replace("\\", "/") for p in glob.glob("scenarios/*.yaml")
-                                            if p.replace("\\", "/") != head)
-    scenes = build_scenes(paths)
+    scenes = build_grid()
     Path("viz3d").mkdir(exist_ok=True)
     with open("viz3d/scenes.json", "w", encoding="utf-8") as f:
         json.dump(scenes, f)
-    print(f"wrote viz3d/scenes.json ({len(scenes)} scenes)")
+    print(f"wrote viz3d/scenes.json ({len(scenes)} scenes: "
+          f"{len(set(s['target'] for s in scenes))} targets x attacks)")
