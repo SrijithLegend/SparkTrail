@@ -24,10 +24,8 @@ h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;font-weight:700;
 
 /* faint grid + grain + vignette over the paper void */
 #paperfx{position:fixed;inset:0;z-index:48;pointer-events:none;
-  background:
-    linear-gradient(var(--brown) .5px,transparent .5px) 0 0/64px 64px,
-    linear-gradient(90deg,var(--brown) .5px,transparent .5px) 0 0/64px 64px;
-  opacity:.05;mix-blend-mode:multiply}
+  /* No overlay grid: the simulation ground and CRT image must stay clean. */
+  background:none;opacity:0;mix-blend-mode:normal}
 #vignette{position:fixed;inset:0;z-index:48;pointer-events:none;
   box-shadow:inset 0 0 220px rgba(43,30,18,.55)}
 
