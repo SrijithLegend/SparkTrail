@@ -1,0 +1,7 @@
+name: Islanded microgrid - inverter voltage setpoint drifts up (evasive)
+ambient_C: 35
+run_s: 600
+target: { type: charger_dcfast, limits: { normal_A: 125, max_A: 250 } }
+hub:    { grid_type: islanded, chargers: 4, transformer_kVA: 800, impedance_pu: 0.05 }
+attacks:
+  - { id: A-VDRIFT, entry_point: cyber.inverter_link, mechanism: setpoint_drift, field: inverter.v_setpoint_pu, rate_per_s: 0.0002, start_s: 30 }

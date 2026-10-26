@@ -2,7 +2,7 @@
 
 A **simulation** that traces how a cyber event on EV-charging / microgrid
 infrastructure propagates into physical effects (temperature, current, voltage,
-transformer load) and renders the propagation path in 3D.
+frequency) and renders the propagation path in 3D.
 
 It never touches a real charger, backend, or vehicle. Everything is a software
 model. An "attack" is an abstract event — *a bad value appears on this modelled
@@ -27,62 +27,74 @@ python test_sparktrail.py
 
 The 3D viewer is `viz3d/index.html`; it loads `viz3d/scenes.json` from the same
 folder. Serve the folder (`cd viz3d && python -m http.server`) or open the
-published artifact.
+published artifact. Drag to orbit, scroll to zoom, **click a node to focus**,
+`⟲` to reset, step/▶/speed on the transport bar, dropdown to switch scenarios.
 
-## What's built — the DC-fast -> hub chain, complete
+## Coverage
+
+**All 6 charger types** (`targets/charger.py`, one parametrized plugin):
+AC Level 1, AC Level 2, DC fast, DC ultra-fast / HPC (liquid coolant node),
+battery-buffered (buffer SoC), bidirectional / V2G (export).
+
+**All 5 microgrid types** (`targets/microgrid.py`): single-feeder hub,
+LV distribution (with PV), islanded (frequency via swing), microgrid with BESS,
+campus/fleet depot.
+
+**All 7 attack mechanisms** (`attacks/`): `command_override`, `sensor_spoof`,
+`setpoint_drift`, `mass_command`, `dos_blackhole`, `replay`, `desync`.
+
+**All 6 entry points**: `backend_link`, `vehicle_link`, `sensor_bus`,
+`hub_controller`, `inverter_link`, `firmware_state`.
+
+**All physical effects**: pack temp (true vs reported), coolant temp (HPC),
+current, transformer load %, bus voltage % (under/overvoltage), frequency
+(nadir / peak / RoCoF), BESS SoC, V2G export power.
+
+## How it's wired
 
 - **Event store** (`core/events.py`) — one append-only log; `caused_by` links
   events into a propagation `networkx.DiGraph`. The trace *is* the product.
-- **DC-fast charger** (`targets/charger_dcfast.py`) + **lumped battery thermal**
-  plant (`physics/battery_thermal.py`).
-- **Single-feeder hub** (`targets/hub_feeder.py`) + algebraic feeder math,
-  with load-shed control. Emits transformer load **and bus voltage**.
-- **Attacks as declarative objects** (`attacks/`) — all 7 mechanisms wired:
-  `command_override`, `sensor_spoof`, `setpoint_drift`, `mass_command`,
-  `dos_blackhole`, `replay`, `desync`. Validated; applied at the right modelled
-  link at the right time.
-- **Physics-aware monitor** (`monitor/physics_aware.py`) — a *separate* reduced
-  model that flags sensor lies. Alerts only; never blocks. Detection delay
-  reported honestly (negative = caught before physical impact).
+- **Plant vs. monitor separation** — the physics-aware monitor
+  (`monitor/physics_aware.py`) runs a *different* R/C model and only alerts,
+  never blocks; detection delay reported honestly.
 - **Impact scoring** (`scoring/impact.py`) — ranks a scenario by physical effect
-  (peak temp, peak load, min voltage, speed, nodes, detection delay).
-- **3D tracer** (`viz3d/`) — Three.js scene: nodes, link tubes, attack pulses,
-  blue->amber->red heat ramp on the pack, transformer overload glow, bus
-  voltage, timeline scrubber, live trace rail with `modelled`/`illustrative`
-  flags.
+  (peak temp, load, voltage excursion, frequency excursion, speed, nodes).
+- **3D tracer** (`viz3d/`) — Three.js scene: type-aware node shapes, link tubes,
+  additive attack pulses, heat ramp, overload glow, islanded ring / PV / BESS
+  decor, live gauges, timeline scrubber, `modelled`/`illustrative` flags.
 
-### Physical effects modelled
-temperature (pack, true vs reported), current, transformer load %, **bus
-voltage %** (with undervoltage flag). Frequency has a model (`physics/swing.py`,
-tested) but no target wires it yet.
-
-### Scenarios
-| File | Story |
+### Scenarios (`scenarios/*.yaml`) — the §2.3 attack set, across types
+| File | Chain · attack |
 |---|---|
-| `dcfast_overcurrent_tempspoof.yaml` | Overcurrent + temp spoof -> pack passes 57 C because the BMS never derates (headline). |
-| `cooling_suppression.yaml` | Temp read low so cooling never engages -> pack rides ~5 C hotter than it should. |
-| `hub_mass_command.yaml` | One mass command -> ~174 % transformer, then load-shed contains it. |
-| `hub_loadshed_suppression.yaml` | Same command + dropped load-shed signal -> overload stays pinned (570 s). |
-| `desync_loadshed.yaml` | Shed signal arrives 90 s late -> recurring overload, bus to 91 %. |
+| `dcfast_overcurrent_tempspoof.yaml` | DC-fast · overcurrent + temp spoof (headline, 57 °C). |
+| `cooling_suppression.yaml` | DC-fast · temp read low, cooling never engages. |
+| `ac_level1.yaml` / `ac_level2.yaml` | AC L1 / L2 · overcurrent. |
+| `hpc_overcurrent_tempspoof.yaml` | HPC 350 kW · overcurrent, coolant climbs (pack 77 °C). |
+| `buffered_overcurrent.yaml` | Battery-buffered · overcurrent drains the buffer. |
+| `v2g_forced_export.yaml` | V2G · vehicle-link forced into export. |
+| `hub_mass_command.yaml` | Single-feeder · mass max-power → ~174 % transformer. |
+| `hub_loadshed_suppression.yaml` | Single-feeder · dropped load-shed → overload pinned. |
+| `desync_loadshed.yaml` | Single-feeder · shed signal 90 s late → recurring overload. |
+| `lv_distribution_masscommand.yaml` | LV distribution · mass command overwhelms the PV offset. |
+| `depot_mass.yaml` | Fleet depot · mass command across 20 DC chargers. |
+| `microgrid_freq_push.yaml` | Islanded · inverter frequency setpoint pushed to 51.5 Hz (#7). |
+| `microgrid_bess_freq.yaml` | BESS · same push, BESS holds it to ~50.9 Hz. |
+| `microgrid_overvoltage_drift.yaml` | Islanded · voltage setpoint drifts up to ~110 % (#6). |
 
 ## Honesty in the UI
 Every physical number is flagged `modelled` (from a real model) or
 `illustrative` (hand-set). The monitor uses a *different* R/C from the plant,
 so its detection time isn't faked by sharing the plant's model.
 
-## Limits (by design, for now)
+## Limits (by design)
 - Lumped single-temperature battery model; no cell-level or spatial detail.
 - Monitor shares the *form* of the plant model, so its detection is optimistic.
-- Steady-state feeder math (algebraic), not full dynamic power-flow.
-- Hardware thermal cut-offs / fuses not yet modelled.
+- Steady-state feeder math (algebraic); single-bus swing for frequency.
+- Governor / droop constants are illustrative, hand-tuned (marked in code).
+- Hardware thermal cut-offs / fuses modelled only as a firmware flag.
 - Attack entry is "a wrong value on a link"; obtaining that access is out of scope.
 
-## Not yet built (breadth — interfaces are ready)
-- Other charger types (AC L1/L2, HPC, V2G, battery-buffered) and microgrid
-  types (LV distribution, islanded, BESS, depot). The `Target` interface and
-  `scenario.py` loader take new plugins without touching the 3D layer.
-- Islanded-microgrid target so `physics/swing.py` (frequency nadir / RoCoF) and
-  the overvoltage/frequency-push attacks have a plant to act on.
-- FastAPI WebSocket streaming — the viewer reads `scenes.json` directly, so a
-  live server isn't needed for the demo. Add `api/server.py` for live streaming.
-- PyBaMM / pandapower swaps — keep the `Target`/physics interfaces fixed.
+## Stretch (interfaces are fixed, so these are drop-in)
+- Swap models for PyBaMM (battery) / pandapower (grid), same `Target` interface.
+- FastAPI WebSocket streaming instead of `scenes.json` replay (`api/server.py`).
+- Monte-Carlo over ambient / impedance for an impact *distribution*.

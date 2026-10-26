@@ -1,0 +1,7 @@
+name: AC Level 1 - overcurrent (domestic, ~2 kW)
+ambient_C: 35
+run_s: 3600
+target: { type: charger_ac1, limits: { normal_A: 10, max_A: 16 } }
+hub:    { grid_type: single_feeder, chargers: 1, transformer_kVA: 50, impedance_pu: 0.05 }
+attacks:
+  - { id: A-OC, entry_point: cyber.backend_link, mechanism: command_override, field: charging_profile.limit_A, to: 16, start_s: 60 }

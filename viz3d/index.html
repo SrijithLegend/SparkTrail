@@ -1,84 +1,109 @@
 <title>SparkTrail Tracer</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: full-bleed dark 3D stage, floating HUD panels (top scene bar, right trace rail, bottom scrubber) */
+/* Layout: full-bleed glowing 3D stage; floating glass HUD — top bar, right trace rail, bottom transport */
 :root{
-  --bg:#0a0e14; --panel:#121823; --panel-edge:#1e2a3a; --fg:#e8eef6; --muted:#8294ad;
-  --accent:#36d4ff;            /* attack / electrical */
-  --heat-cool:#3a7bd5; --heat-mid:#ffb43a; --heat-hot:#ff3b30;
-  --good:#39d98a; --warn:#ffb43a; --crit:#ff3b30;
+  --bg0:#070a12; --bg1:#0d1424; --glass:rgba(18,26,42,.72); --edge:#243247; --edge2:#32465f;
+  --fg:#eaf2ff; --muted:#8ba0bd;
+  --accent:#22d3ee; --accent2:#a855f7;        /* signal / attack */
+  --heat-cool:#3b82f6; --heat-mid:#f59e0b; --heat-hot:#ef4444;
+  --good:#22c55e; --warn:#f59e0b; --crit:#ef4444;
   --font:'Space Grotesk',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
-:root[data-theme="light"]{
-  --bg:#0a0e14; --panel:#121823; --panel-edge:#1e2a3a; --fg:#e8eef6; --muted:#8294ad;
-}
-/* SparkTrail is a single committed dark instrument look (a glowing simulation stage); same palette both themes by design */
+/* SparkTrail is a single committed neon-instrument look; same palette in both themes by design */
+:root[data-theme="light"]{ color-scheme:dark }
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden}
+body{margin:0;background:
+    radial-gradient(1200px 800px at 70% -10%, #15213a 0%, transparent 60%),
+    radial-gradient(900px 700px at 0% 110%, #1a1230 0%, transparent 55%),
+    var(--bg0);
+  color:var(--fg);font-family:var(--font);overflow:hidden;-webkit-tap-highlight-color:transparent}
 canvas{display:block;position:fixed;inset:0}
 .hud{position:fixed;z-index:5}
+.glass{background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid var(--edge);border-radius:14px}
 
 /* top bar */
-#top{top:env(safe-area-inset-top,0);left:0;right:0;display:flex;gap:14px;align-items:center;
-  padding:14px max(16px,env(safe-area-inset-right,0)) 14px max(16px,env(safe-area-inset-left,0));
-  background:linear-gradient(#0a0e14ee,#0a0e1400)}
-#top h1{font-size:15px;margin:0;letter-spacing:.14em;text-transform:uppercase;font-weight:600}
-#top h1 b{color:var(--accent)}
-#top .sub{font-size:11px;color:var(--muted);letter-spacing:.04em}
-select{background:var(--panel);color:var(--fg);border:1px solid var(--panel-edge);border-radius:8px;
-  padding:7px 10px;font-family:var(--font);font-size:12px;margin-left:auto;max-width:52vw}
+#top{top:env(safe-area-inset-top,0);left:0;right:0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  padding:12px max(16px,env(safe-area-inset-right,0)) 12px max(16px,env(safe-area-inset-left,0))}
+.brand{display:flex;flex-direction:column;gap:1px}
+.brand h1{font-size:15px;margin:0;letter-spacing:.16em;text-transform:uppercase;font-weight:600}
+.brand h1 b{color:var(--accent)}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:10px;letter-spacing:.04em;padding:3px 8px;border-radius:999px;border:1px solid var(--edge2);
+  color:var(--muted);background:#0e1626}
+.badge b{color:var(--fg);font-weight:500}
+select{background:#0e1626;color:var(--fg);border:1px solid var(--edge2);border-radius:9px;
+  padding:8px 10px;font-family:var(--font);font-size:12px;margin-left:auto;max-width:56vw}
 
 /* right trace rail */
-#rail{top:72px;right:max(12px,env(safe-area-inset-right,0));width:300px;max-width:calc(100vw - 24px);
-  background:var(--panel);border:1px solid var(--panel-edge);border-radius:14px;padding:14px;
-  display:flex;flex-direction:column;gap:12px;max-height:calc(100% - 180px);overflow:auto}
+#rail{top:62px;right:max(12px,env(safe-area-inset-right,0));width:306px;max-width:calc(100vw - 24px);
+  padding:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100% - 168px);overflow:auto}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.tile{background:#0d131d;border:1px solid var(--panel-edge);border-radius:10px;padding:9px 10px}
-.tile .k{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.tile{background:#0c1322;border:1px solid var(--edge);border-radius:11px;padding:9px 10px;position:relative;overflow:hidden}
+.tile .k{font-size:9.5px;color:var(--muted);letter-spacing:.09em;text-transform:uppercase}
 .tile .v{font-size:19px;font-family:var(--mono);margin-top:3px;font-variant-numeric:tabular-nums}
 .tile .v small{font-size:11px;color:var(--muted)}
-.sec-h{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tile.hot{border-color:#5a2420}.tile.warn{border-color:#5a4420}
+.gauge{height:4px;border-radius:3px;background:#1b2740;margin-top:7px;overflow:hidden}
+.gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.sec-h{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .trace{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:11px}
-.row{display:flex;gap:8px;align-items:baseline;padding:5px 7px;border-radius:7px;background:#0d131d;
-  border-left:3px solid var(--panel-edge)}
+.row{display:flex;gap:8px;align-items:baseline;padding:5px 8px;border-radius:8px;background:#0c1322;
+  border-left:3px solid var(--edge2)}
 .row.attack{border-left-color:var(--accent)}
 .row.alert{border-left-color:var(--warn)}
 .row.physics{border-left-color:var(--heat-hot)}
-.row .t{color:var(--muted);min-width:42px}
+.row .t{color:var(--muted);min-width:40px}
 .row .m{flex:1;min-width:0;word-break:break-word}
-.flag{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.05em;text-transform:uppercase}
-.flag.modelled{background:#15351f;color:var(--good)}
+.flag{font-size:9px;padding:1px 5px;border-radius:5px;letter-spacing:.04em;text-transform:uppercase}
+.flag.modelled{background:#0f3321;color:var(--good)}
 .flag.illustrative{background:#3a2a10;color:var(--warn)}
-.legend{display:flex;flex-wrap:wrap;gap:8px;font-size:10px;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 10px;font-size:10px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
 
-/* bottom scrubber */
+/* selected-node chip */
+#sel{left:max(16px,env(safe-area-inset-left,0));bottom:96px;padding:10px 12px;font-size:12px;max-width:260px}
+#sel .n{font-weight:600;letter-spacing:.02em}
+#sel .s{font-family:var(--mono);color:var(--muted);margin-top:4px;font-size:11px;line-height:1.5}
+
+/* bottom transport */
 #dock{left:0;right:0;bottom:env(safe-area-inset-bottom,0);
-  padding:14px max(16px,env(safe-area-inset-right,0)) 16px max(16px,env(safe-area-inset-left,0));
-  background:linear-gradient(#0a0e1400,#0a0e14ee 40%)}
-.scrub{display:flex;gap:12px;align-items:center;max-width:720px}
-button.play{background:var(--accent);color:#04121a;border:0;border-radius:50%;width:42px;height:42px;
-  font-size:16px;cursor:pointer;flex:none}
-input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:4px}
-.clock{font-family:var(--mono);font-size:13px;min-width:66px;text-align:right;font-variant-numeric:tabular-nums}
-.banner{position:fixed;inset:auto 0 0 0;z-index:9;text-align:center;font-size:12px;color:var(--muted);
-  padding:8px;background:#0a0e14}
-@media(max-width:560px){
-  #rail{position:fixed;top:auto;bottom:96px;left:max(12px,env(safe-area-inset-left,0));right:max(12px,env(safe-area-inset-right,0));width:auto;max-height:38%}
+  padding:12px max(16px,env(safe-area-inset-right,0)) 16px max(16px,env(safe-area-inset-left,0))}
+.transport{display:flex;gap:10px;align-items:center;max-width:860px;margin:0 auto}
+button.ctl{background:#0e1626;color:var(--fg);border:1px solid var(--edge2);border-radius:10px;height:40px;
+  min-width:40px;padding:0 10px;font-size:14px;cursor:pointer;flex:none;font-family:var(--font)}
+button.play{background:linear-gradient(135deg,var(--accent),#0891b2);color:#04121a;border:0;width:46px;height:46px;
+  border-radius:50%;font-size:16px}
+button.ctl:hover{border-color:var(--accent)}
+input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:5px}
+.clock{font-family:var(--mono);font-size:13px;min-width:62px;text-align:right;font-variant-numeric:tabular-nums}
+.spd{font-family:var(--mono);font-size:12px}
+.banner{position:fixed;inset:auto 0 0 0;z-index:9;text-align:center;font-size:12px;color:var(--muted);padding:10px;background:#0a0e14}
+.hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0) + 56px);z-index:4;
+  font-size:11px;color:var(--muted);background:#0c1322aa;border:1px solid var(--edge);border-radius:999px;padding:5px 12px;
+  transition:opacity .6s;pointer-events:none}
+@media(max-width:620px){
+  #rail{position:fixed;top:auto;bottom:150px;left:max(12px,env(safe-area-inset-left,0));right:max(12px,env(safe-area-inset-right,0));width:auto;max-height:34%}
+  #sel{display:none}
+  .transport{flex-wrap:wrap;justify-content:center}
+  select{max-width:100%}
 }
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <div class="hud" id="top">
-  <div>
+  <div class="brand">
     <h1><b>Spark</b>Trail · Tracer</h1>
-    <div class="sub" id="scene-name">loading…</div>
+    <div class="badges" id="badges"></div>
   </div>
   <select id="scene-select"></select>
 </div>
 
-<div class="hud" id="rail">
+<div class="hint" id="hint">drag to orbit · scroll to zoom · click a node to focus</div>
+
+<div class="hud glass" id="rail">
   <div class="tiles" id="tiles"></div>
   <div class="sec-h">Propagation trace</div>
   <div class="trace" id="trace"></div>
@@ -86,16 +111,22 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:4px}
   <div class="legend">
     <span><i style="background:var(--accent)"></i>attack / signal</span>
     <span><i style="background:var(--heat-hot)"></i>pack heat</span>
-    <span><i style="background:var(--warn)"></i>monitor alert</span>
-    <span><span class="flag modelled">modelled</span> real model</span>
-    <span><span class="flag illustrative">illustrative</span> hand-set</span>
+    <span><i style="background:var(--warn)"></i>alert</span>
+    <span><span class="flag modelled">modelled</span></span>
+    <span><span class="flag illustrative">illustrative</span></span>
   </div>
 </div>
 
+<div class="hud glass" id="sel" hidden><div class="n" id="sel-n"></div><div class="s" id="sel-s"></div></div>
+
 <div class="hud" id="dock">
-  <div class="scrub">
-    <button class="play" id="play">▶</button>
+  <div class="transport">
+    <button class="ctl" id="reset" title="Reset view">⟲</button>
+    <button class="ctl" id="back" title="Step back">⏮</button>
+    <button class="ctl play" id="play">❚❚</button>
+    <button class="ctl" id="fwd" title="Step forward">⏭</button>
     <input type="range" id="range" min="0" max="100" value="0">
+    <button class="ctl spd" id="speed" title="Playback speed">1×</button>
     <div class="clock" id="clock">0s</div>
   </div>
 </div>
@@ -103,232 +134,281 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--accent);height:4px}
 <div class="banner" id="banner" hidden></div>
 
 <script>
-const $ = s => document.querySelector(s);
-let SCENES = [], scene3d, cam, renderer, nodes = {}, tubes = [], pulses = [];
-let cur = null, playing = true, tIdx = 0;
+const $=s=>document.querySelector(s);
+let SCENES=[], scene3d, cam, renderer, raycaster, nodes={}, tubes=[], pulses=[], glows=[];
+let cur=null, playing=true, tIdx=0, selected=null;
+const SPEEDS=[0.5,1,2,4]; let spdI=1;
 
-// ---------- data load ----------
 async function boot(){
-  try{
-    const r = await fetch('./scenes.json'); SCENES = await r.json();
-  }catch(e){
-    $('#banner').hidden = false;
-    $('#banner').textContent = 'Could not load scenes.json — serve this page from the same folder as scenes.json.';
-    return;
-  }
-  const sel = $('#scene-select');
-  SCENES.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.name; sel.appendChild(o); });
-  sel.onchange = ()=> loadScene(+sel.value);
-  initGL();
-  loadScene(0);
-  animate();
+  try{ SCENES=await (await fetch('./scenes.json')).json(); }
+  catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes.json — serve this page from the same folder as scenes.json.'; return; }
+  const sel=$('#scene-select');
+  SCENES.forEach((s,i)=>{const o=document.createElement('option');o.value=i;o.textContent=s.name;sel.appendChild(o);});
+  sel.onchange=()=>loadScene(+sel.value);
+  initGL(); loadScene(0); animate();
+  setTimeout(()=>{$('#hint').style.opacity='0';},5000);
 }
 
-// ---------- three.js scene ----------
+// ---------- GL ----------
 function initGL(){
-  scene3d = new THREE.Scene();
-  scene3d.fog = new THREE.FogExp2(0x0a0e14, 0.035);
-  cam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
-  renderer = new THREE.WebGLRenderer({antialias:true});
+  scene3d=new THREE.Scene();
+  scene3d.fog=new THREE.FogExp2(0x070a12,0.028);
+  cam=new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 200);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  renderer.setSize(innerWidth, innerHeight);
+  renderer.setSize(innerWidth,innerHeight);
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
-  scene3d.add(new THREE.AmbientLight(0x4a6a8a, 0.6));
-  const key = new THREE.PointLight(0x9fd8ff, 0.8, 50); key.position.set(6,10,6); scene3d.add(key);
-  // ground grid
-  const grid = new THREE.GridHelper(40, 40, 0x1e2a3a, 0x141c28);
-  grid.position.y = -1.6; scene3d.add(grid);
-  addEventListener('resize', ()=>{
-    cam.aspect = innerWidth/innerHeight; cam.updateProjectionMatrix();
-    renderer.setSize(innerWidth, innerHeight);
-  });
+  scene3d.add(new THREE.AmbientLight(0x5a7aa6,0.7));
+  const key=new THREE.PointLight(0x9fe8ff,1.0,80); key.position.set(8,14,8); scene3d.add(key);
+  const rim=new THREE.PointLight(0xa855f7,0.5,80); rim.position.set(-10,6,-6); scene3d.add(rim);
+  const grid=new THREE.GridHelper(60,60,0x243247,0x141c28); grid.position.y=-1.7; scene3d.add(grid);
+  raycaster=new THREE.Raycaster();
+  addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
   installOrbit();
 }
 
-// minimal orbit: drag to rotate, wheel to zoom, gentle auto-spin when idle
-let orb = {az:0.7, el:0.5, r:16, idle:0, drag:false, px:0, py:0};
+// orbit around a pivot; click-to-focus moves the pivot
+let orb={az:0.75,el:0.5,r:18,idle:0,drag:false,px:0,py:0,moved:0,
+  pivot:new THREE.Vector3(0,.3,0), tgt:new THREE.Vector3(0,.3,0), tr:18};
 function installOrbit(){
-  const c = renderer.domElement;
-  c.addEventListener('pointerdown', e=>{orb.drag=true; orb.px=e.clientX; orb.py=e.clientY; orb.idle=0;});
-  addEventListener('pointerup', ()=>orb.drag=false);
-  addEventListener('pointermove', e=>{
-    if(!orb.drag) return; orb.idle=0;
-    orb.az -= (e.clientX-orb.px)*0.006; orb.el += (e.clientY-orb.py)*0.006;
-    orb.el = Math.max(0.1, Math.min(1.3, orb.el)); orb.px=e.clientX; orb.py=e.clientY;
-  });
-  c.addEventListener('wheel', e=>{orb.r = Math.max(7, Math.min(30, orb.r + e.deltaY*0.01)); e.preventDefault();}, {passive:false});
+  const c=renderer.domElement;
+  c.addEventListener('pointerdown',e=>{orb.drag=true;orb.px=e.clientX;orb.py=e.clientY;orb.idle=0;orb.moved=0;});
+  addEventListener('pointerup',e=>{ if(orb.drag && orb.moved<5) pick(e); orb.drag=false; });
+  addEventListener('pointermove',e=>{ if(!orb.drag)return; orb.idle=0;
+    orb.moved+=Math.abs(e.clientX-orb.px)+Math.abs(e.clientY-orb.py);
+    orb.az-=(e.clientX-orb.px)*0.006; orb.el+=(e.clientY-orb.py)*0.006;
+    orb.el=Math.max(0.12,Math.min(1.35,orb.el)); orb.px=e.clientX; orb.py=e.clientY; });
+  c.addEventListener('wheel',e=>{orb.tr=Math.max(6,Math.min(44,orb.tr+e.deltaY*0.012));e.preventDefault();},{passive:false});
 }
+function pick(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(m,cam);
+  const meshes=Object.values(nodes).map(n=>n.mesh);
+  const hit=raycaster.intersectObjects(meshes,false)[0];
+  if(hit){ const name=Object.keys(nodes).find(k=>nodes[k].mesh===hit.object); focusNode(name); }
+}
+function focusNode(name){
+  selected=name; const n=nodes[name];
+  orb.tgt.copy(n.pos); orb.tr=Math.max(7, n.focus||9);
+  applyFrame();
+}
+function resetView(){ selected=null; orb.tgt.set(0,.3,0); orb.tr=cur._overview; $('#sel').hidden=true; }
 function updateCam(dt){
-  orb.idle += dt;
-  if(!orb.drag && orb.idle>2.5) orb.az += dt*0.08;      // gentle default orbit
-  const r=orb.r, e=orb.el;
-  cam.position.set(Math.cos(orb.az)*Math.cos(e)*r, Math.sin(e)*r, Math.sin(orb.az)*Math.cos(e)*r);
-  cam.lookAt(0,0.3,0);
+  orb.idle+=dt;
+  if(!orb.drag && orb.idle>3 && !selected) orb.az+=dt*0.06;
+  orb.pivot.lerp(orb.tgt, Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
+  const r=orb.r,e=orb.el,p=orb.pivot;
+  cam.position.set(p.x+Math.cos(orb.az)*Math.cos(e)*r, p.y+Math.sin(e)*r, p.z+Math.sin(orb.az)*Math.cos(e)*r);
+  cam.lookAt(p);
+}
+
+// ---------- helpers ----------
+function sprite(text,scale=2.4){
+  const cv=document.createElement('canvas'); cv.width=256;cv.height=64;
+  const g=cv.getContext('2d'); g.fillStyle='#eaf2ff'; g.font='600 26px "Space Grotesk",monospace'; g.textAlign='center';
+  g.fillText(text,128,42);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  sp.scale.set(scale,scale*0.25,1); return sp;
+}
+function glowSprite(){
+  const cv=document.createElement('canvas'); cv.width=128;cv.height=128;
+  const g=cv.getContext('2d'); const grd=g.createRadialGradient(64,64,0,64,64,64);
+  grd.addColorStop(0,'rgba(255,255,255,0.9)'); grd.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=grd; g.fillRect(0,0,128,128);
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}));
+}
+function addGlow(pos,color,size){
+  const s=glowSprite(); s.material.color.set(color); s.scale.set(size,size,1); s.position.copy(pos); s.position.y+=.2;
+  scene3d.add(s); glows.push({sp:s,base:size}); return s;
+}
+
+// charger geometry per type (keeps types visually distinct)
+function chargerGeo(kind){
+  if(kind.includes('AC Level 1')) return new THREE.BoxGeometry(0.5,1.0,0.3);
+  if(kind.includes('AC Level 2')) return new THREE.BoxGeometry(0.6,1.3,0.4);
+  if(kind.includes('HPC')||kind.includes('ultra')) return new THREE.CylinderGeometry(0.42,0.5,2.2,16);
+  if(kind.includes('Buffered')) return new THREE.BoxGeometry(0.8,1.8,0.8);
+  if(kind.includes('V2G')) return new THREE.CylinderGeometry(0.38,0.42,1.7,6);
+  return new THREE.CylinderGeometry(0.36,0.42,1.8,12); // DC fast
+}
+
+function node(name,geo,color,pos,focus){
+  const group=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.28,roughness:0.35,metalness:0.35});
+  const mesh=new THREE.Mesh(geo,mat); group.add(mesh);
+  const lbl=sprite(name.replace('charger_','C').replace('hub_tx','GRID').replace('backend','CSMS'));
+  lbl.position.set(0,(geo.parameters.height||1.4)/2+0.7,0); group.add(lbl);
+  group.position.copy(pos); scene3d.add(group);
+  nodes[name]={group,mesh,mat,pos:pos.clone(),focus:focus||9,base:color};
+  return nodes[name];
+}
+function tube(a,b,color=0x243247){
+  const g=new THREE.TubeGeometry(new THREE.LineCurve3(a.clone(),b.clone()),1,0.035,8,false);
+  const t=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.35}));
+  scene3d.add(t); tubes.push(t); return {a:a.clone(),b:b.clone()};
 }
 
 function clearScene(){
   Object.values(nodes).forEach(n=>scene3d.remove(n.group));
-  tubes.forEach(t=>scene3d.remove(t)); pulses.forEach(p=>scene3d.remove(p.mesh));
-  nodes={}; tubes=[]; pulses=[];
-}
-
-function makeLabel(text){
-  const cv=document.createElement('canvas'); cv.width=256; cv.height=64;
-  const g=cv.getContext('2d'); g.fillStyle='#e8eef6'; g.font='28px monospace'; g.textAlign='center';
-  g.fillText(text,128,40);
-  const tex=new THREE.CanvasTexture(cv); const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
-  sp.scale.set(2.4,0.6,1); return sp;
-}
-
-function node(name, geo, color, pos){
-  const group=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:0.25, roughness:0.4, metalness:0.3});
-  const mesh=new THREE.Mesh(geo, mat); group.add(mesh);
-  const lbl=makeLabel(name); lbl.position.set(0, 1.4, 0); group.add(lbl);
-  group.position.set(...pos); scene3d.add(group);
-  nodes[name]={group, mesh, mat, pos:new THREE.Vector3(...pos)};
-}
-
-function tube(a, b){
-  const curve=new THREE.LineCurve3(a.clone(), b.clone());
-  const g=new THREE.TubeGeometry(curve, 1, 0.04, 8, false);
-  const m=new THREE.MeshStandardMaterial({color:0x1e2a3a, emissive:0x1e2a3a, emissiveIntensity:0.3});
-  const t=new THREE.Mesh(g,m); scene3d.add(t); tubes.push(t); return {a,b};
+  tubes.forEach(t=>scene3d.remove(t)); pulses.forEach(p=>scene3d.remove(p.mesh)); glows.forEach(g=>scene3d.remove(g.sp));
+  (cur&&cur._decor||[]).forEach(d=>scene3d.remove(d));
+  nodes={};tubes=[];pulses=[];glows=[];
 }
 
 function buildScene(s){
-  clearScene();
-  const chargers = s.chargers;
-  node('backend', new THREE.BoxGeometry(1,1.6,0.8), 0x2a3a52, [-6,0,0]);
-  node('hub_tx', new THREE.BoxGeometry(1.4,1.4,1.4), 0x3a4a62, [0,0,0]);
-  tube(nodes['backend'].pos, nodes['hub_tx'].pos);
-  const n=chargers.length, R=Math.max(3, n*0.5);
-  chargers.forEach((cn,i)=>{
-    const ang = n===1 ? 0 : (i/(n-1)-0.5)*Math.PI*0.9;
-    const pos=[Math.cos(ang)*R+4, 0, Math.sin(ang)*R];
-    node(cn, new THREE.CylinderGeometry(0.35,0.4,1.8,12), 0x2a4a3a, pos);
-    tube(nodes['hub_tx'].pos, nodes[cn].pos);
+  clearScene(); s._decor=[];
+  const cns=s.chargers, n=cns.length;
+  node('backend',new THREE.BoxGeometry(1,1.7,0.8),0x3a4a72,new THREE.Vector3(-8,0,0),11);
+  const hub=node('hub_tx',new THREE.BoxGeometry(1.5,1.5,1.5),0x46607f,new THREE.Vector3(0,0,0),12);
+  tube(nodes['backend'].pos,nodes['hub_tx'].pos,0x2b3b5a);
+  // grid-type decoration around the hub
+  decorateGrid(s.grid_type,s);
+  // chargers on an arc to the right
+  const R=Math.max(4,n*0.42);
+  cns.forEach((cn,i)=>{
+    const ang=n===1?0:(i/(n-1)-0.5)*Math.PI*(n>10?1.4:0.95);
+    const pos=new THREE.Vector3(Math.cos(ang)*R+5, 0, Math.sin(ang)*R);
+    const g=node(cn,chargerGeo(s.charger_type),0x2bb6a0,pos,8);
+    tube(nodes['hub_tx'].pos,pos,0x203a4a);
+    addGlow(pos,0x3b82f6,0.01); // heat halo, grows with temp
   });
-  // reset camera distance to fit
-  orb.r = Math.max(14, 9 + n*0.6);
+  s._overview=Math.max(15,10+n*0.5); orb.r=s._overview; orb.tr=s._overview;
+  orb.tgt.set(0,.3,0); orb.pivot.set(0,.3,0); selected=null;
+  // badges
+  $('#badges').innerHTML =
+    `<span class="badge"><b>${s.charger_type}</b> charger</span>`+
+    `<span class="badge"><b>${s.grid_type}</b></span>`+
+    `<span class="badge">${n}×</span>`;
 }
 
-// heat ramp blue -> amber -> red over 35..60 C
-function heatColor(T){
-  const x=Math.max(0,Math.min(1,(T-35)/(58-35)));
-  const c=new THREE.Color();
-  if(x<0.5) c.lerpColors(new THREE.Color(0x3a7bd5), new THREE.Color(0xffb43a), x*2);
-  else c.lerpColors(new THREE.Color(0xffb43a), new THREE.Color(0xff3b30), (x-0.5)*2);
+function decorateGrid(kind,s){
+  const mk=(m)=>{scene3d.add(m);s._decor.push(m);return m;};
+  if(kind.includes('Islanded')||kind.includes('BESS')){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(2.4,0.05,8,48),
+      new THREE.MeshStandardMaterial({color:0x22d3ee,emissive:0x22d3ee,emissiveIntensity:0.6}));
+    ring.rotation.x=Math.PI/2; ring.position.y=-1.5; mk(ring); s._ring=ring;
+  }
+  if(kind.includes('BESS')){
+    const b=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.9,0.7),
+      new THREE.MeshStandardMaterial({color:0x22c55e,emissive:0x16351f,emissiveIntensity:0.5}));
+    b.position.set(0,0,-2.2); mk(b); mk((()=>{const l=sprite('BESS',1.6);l.position.set(0,1.1,-2.2);return l;})());
+  }
+  if(kind.includes('LV distribution')){
+    const pv=new THREE.Mesh(new THREE.PlaneGeometry(1.6,1.0),
+      new THREE.MeshStandardMaterial({color:0x1e3a8a,emissive:0x1e3a8a,emissiveIntensity:0.4,side:THREE.DoubleSide}));
+    pv.rotation.x=-Math.PI/3; pv.position.set(0,0.2,-2.4); mk(pv); mk((()=>{const l=sprite('PV',1.3);l.position.set(0,1.1,-2.4);return l;})());
+  }
+}
+
+// ---------- color ramp ----------
+function heat(T){
+  const x=Math.max(0,Math.min(1,(T-35)/(60-35))), c=new THREE.Color();
+  if(x<0.5)c.lerpColors(new THREE.Color(0x3b82f6),new THREE.Color(0xf59e0b),x*2);
+  else c.lerpColors(new THREE.Color(0xf59e0b),new THREE.Color(0xef4444),(x-0.5)*2);
   return c;
 }
 
-function spawnPulse(from, to){
-  const m=new THREE.Mesh(new THREE.SphereGeometry(0.16,12,12),
-    new THREE.MeshBasicMaterial({color:0x36d4ff}));
-  scene3d.add(m); pulses.push({mesh:m, from:nodes[from].pos, to:nodes[to].pos, u:0});
+// ---------- pulses ----------
+function srcOf(m){ return (m.node&&m.node.includes('backend'))?'backend':'hub_tx'; }
+function spawnPulse(from,to){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.18,12,12),
+    new THREE.MeshBasicMaterial({color:0x22d3ee}));
+  const gl=addGlow(nodes[from].pos,0x22d3ee,1.4);
+  scene3d.add(m); pulses.push({mesh:m,glow:gl,from:nodes[from].pos.clone(),to:nodes[to].pos.clone(),u:0});
 }
 
-// ---------- scene state at a timeline index ----------
+// ---------- frame ----------
 function applyFrame(){
-  if(!cur) return;
-  const fr = cur.timeline[tIdx]; if(!fr) return;
-  // charger heat
-  cur.chargers.forEach(cn=>{
-    const st=fr.chargers[cn]; if(!st||!nodes[cn]) return;
-    const col=heatColor(st.temp);
-    nodes[cn].mat.color.copy(col); nodes[cn].mat.emissive.copy(col);
-    nodes[cn].mat.emissiveIntensity = 0.25 + 0.9*Math.max(0,(st.temp-40)/18);
+  if(!cur)return; const fr=cur.timeline[tIdx]; if(!fr)return;
+  cur.chargers.forEach((cn,i)=>{
+    const st=fr.chargers[cn]; if(!st||!nodes[cn])return;
+    const col=heat(st.temp); nodes[cn].mat.color.copy(col); nodes[cn].mat.emissive.copy(col);
+    const hot=Math.max(0,(st.temp-40)/18); nodes[cn].mat.emissiveIntensity=0.28+0.9*hot;
+    const gl=glows[i]; if(gl){gl.sp.material.color.copy(col); gl.sp.scale.setScalar(0.01+hot*2.6);}
+    if(selected===cn) nodes[cn].mesh.scale.setScalar(1.12); else nodes[cn].mesh.scale.setScalar(1);
   });
-  // transformer overload pulse
   const hub=nodes['hub_tx'];
   if(hub){
     const over=Math.max(0,(fr.load-100)/80);
-    const c=new THREE.Color(0x3a4a62).lerp(new THREE.Color(0xff3b30), Math.min(1,over));
-    hub.mat.color.copy(c); hub.mat.emissive.copy(c);
-    hub.mat.emissiveIntensity = 0.25 + over*0.8;
+    const c=new THREE.Color(0x46607f).lerp(new THREE.Color(0xef4444),Math.min(1,over));
+    hub.mat.color.copy(c); hub.mat.emissive.copy(c); hub.mat.emissiveIntensity=0.28+over*0.9;
   }
-  // markers that just became active -> spawn pulses + log
+  if(cur._ring){ // frequency: ring brightness + color off-nominal
+    const f=fr.freq; if(f!=null){ const dev=Math.min(1,Math.abs(f-50)/1.5);
+      cur._ring.material.color.set(new THREE.Color(0x22d3ee).lerp(new THREE.Color(0xef4444),dev));
+      cur._ring.material.emissiveIntensity=0.5+dev; }
+  }
   renderPanel(fr);
 }
 
-function markerSource(m){
-  if(m.node && m.node.includes('backend')) return 'backend';
-  if(m.node && m.node.includes('hub')) return 'hub_tx';
-  return 'hub_tx';
-}
-function markerTarget(){ return cur.chargers[0]; }
-
 let lastT=-1;
-function fireMarkers(t){
-  cur.markers.forEach(m=>{
-    if(m.t<=t && m.t>lastT){
-      spawnPulse(markerSource(m), markerTarget());
-    }
-  });
-  lastT=t;
-}
+function fireMarkers(t){ cur.markers.forEach(m=>{ if(m.t<=t&&m.t>lastT) spawnPulse(srcOf(m),cur.chargers[0]); }); lastT=t; }
 
 // ---------- panel ----------
-function renderPanel(fr){
-  const sc=cur.score;
-  $('#tiles').innerHTML = tile('Impact', sc.impact_score) +
-    tile('Peak pack', sc.peak_pack_temp_C, '°C') +
-    tile('Transformer', sc.peak_transformer_load_pct, '%') +
-    tile('Min bus V', sc.min_bus_voltage_pct==null?'—':sc.min_bus_voltage_pct, '%') +
-    tile('Detect Δ', sc.detection_delay_s==null?'—':sc.detection_delay_s, 's');
-  const t=fr.t;
-  const shown = cur.markers.filter(m=>m.t<=t).slice(-6).reverse();
-  let rows = shown.map(m=>row(m.type, m.t, `${m.node} · ${m.label}`,
-    m.type==='attack'?'illustrative':'modelled')).join('');
-  // live physics line for charger 0
-  const c0=fr.chargers[cur.chargers[0]];
-  if(c0){
-    const spoof = Math.abs(c0.reported-c0.temp)>1;
-    const vlow = fr.volt!=null && fr.volt < 94;
-    rows = row('physics', t, `${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A`,'modelled') +
-      (fr.volt!=null?row(vlow?'alert':'physics', t, `bus ${fr.volt}% · load ${fr.load}%`,'modelled'):'') +
-      (spoof?row('attack', t, `reported ${c0.reported}°C (spoofed)`,'illustrative'):'') + rows;
-  }
-  $('#trace').innerHTML = rows || '<div class="row"><span class="m">no events yet</span></div>';
-}
-const tile=(k,v,u='')=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:''}</div></div>`;
+const tile=(k,v,u='',cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}${u?` <small>${u}</small>`:''}</div></div>`;
+const gaugeTile=(k,v,u,pct,cls='')=>`<div class="tile ${cls}"><div class="k">${k}</div><div class="v">${v}<small>${u}</small></div><div class="gauge"><i style="width:${Math.max(2,Math.min(100,pct))}%"></i></div></div>`;
 const row=(cls,t,m,flag)=>`<div class="row ${cls}"><span class="t">${t|0}s</span><span class="m">${m}</span><span class="flag ${flag}">${flag}</span></div>`;
 
-// ---------- loop ----------
-function loadScene(i){
-  cur = SCENES[i]; tIdx=0; lastT=-1;
-  $('#scene-name').textContent = cur.name;
-  $('#range').max = cur.timeline.length-1;
-  buildScene(cur); applyFrame();
-}
-$('#play').onclick = ()=>{ playing=!playing; $('#play').textContent = playing?'❚❚':'▶'; };
-$('#play').textContent='❚❚';
-$('#range').oninput = e=>{ playing=false; $('#play').textContent='▶'; tIdx=+e.target.value; lastT=cur.timeline[tIdx].t; applyFrame(); updateClock(); };
-function updateClock(){ $('#clock').textContent = Math.round(cur.timeline[tIdx].t)+'s'; }
+function renderPanel(fr){
+  const sc=cur.score, t=fr.t;
+  let tiles=tile('Impact',sc.impact_score)+
+    tile('Peak pack',sc.peak_pack_temp_C,'°C', sc.peak_pack_temp_C>=50?'hot':'')+
+    gaugeTile('Transformer',sc.peak_transformer_load_pct,'%',sc.peak_transformer_load_pct, sc.peak_transformer_load_pct>100?'warn':'')+
+    gaugeTile('Bus voltage',fr.volt==null?'—':fr.volt,'%',fr.volt==null?0:(fr.volt-80)*2.5, (fr.volt!=null&&(fr.volt<94||fr.volt>106))?'warn':'');
+  if(sc.peak_coolant_temp_C!=null) tiles+=tile('Coolant',sc.peak_coolant_temp_C,'°C');
+  if(fr.freq!=null) tiles+=gaugeTile('Frequency',fr.freq,'Hz',((fr.freq-48)/4)*100, (fr.freq<49.5||fr.freq>50.5)?'warn':'');
+  if(fr.bess!=null) tiles+=gaugeTile('BESS SoC',fr.bess,'%',fr.bess);
+  $('#tiles').innerHTML=tiles;
 
-let last=performance.now(), acc=0;
+  const shown=cur.markers.filter(m=>m.t<=t).slice(-5).reverse();
+  let rows=shown.map(m=>row(m.type,m.t,`${m.node} · ${m.label}`,m.type==='attack'?'illustrative':'modelled')).join('');
+  const c0=fr.chargers[cur.chargers[0]];
+  if(c0){
+    const spoof=Math.abs(c0.reported-c0.temp)>1, vlow=fr.volt!=null&&(fr.volt<94||fr.volt>106);
+    rows=row('physics',t,`${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A`,'modelled')+
+      (c0.coolant!=null?row('physics',t,`coolant ${c0.coolant}°C`,'modelled'):'')+
+      (fr.volt!=null?row(vlow?'alert':'physics',t,`bus ${fr.volt}%${fr.freq!=null?` · ${fr.freq}Hz`:''} · load ${fr.load}%`,'modelled'):'')+
+      (spoof?row('attack',t,`reported ${c0.reported}°C (spoofed)`,'illustrative'):'')+rows;
+  }
+  $('#trace').innerHTML=rows||'<div class="row"><span class="m">no events yet</span></div>';
+
+  if(selected){
+    const n=nodes[selected], st=fr.chargers[selected];
+    $('#sel').hidden=false; $('#sel-n').textContent=selected;
+    if(st) $('#sel-s').innerHTML=`true ${st.temp}°C · ${st.current}A${st.coolant!=null?` · coolant ${st.coolant}°C`:''}<br>reported ${st.reported}°C`;
+    else if(selected==='hub_tx') $('#sel-s').innerHTML=`load ${fr.load}% · bus ${fr.volt}%${fr.freq!=null?`<br>freq ${fr.freq}Hz${fr.bess!=null?` · SoC ${fr.bess}%`:''}`:''}`;
+    else $('#sel-s').textContent='backend / CSMS link';
+  }
+}
+
+// ---------- transport ----------
+function loadScene(i){ cur=SCENES[i]; tIdx=0; lastT=-1; $('#range').max=cur.timeline.length-1; buildScene(cur); applyFrame(); updateClock(); }
+function updateClock(){ $('#clock').textContent=Math.round(cur.timeline[tIdx].t)+'s'; }
+function setPlay(p){ playing=p; $('#play').textContent=p?'❚❚':'▶'; }
+$('#play').onclick=()=>setPlay(!playing);
+$('#reset').onclick=resetView;
+$('#back').onclick=()=>{setPlay(false);tIdx=Math.max(0,tIdx-1);$('#range').value=tIdx;lastT=cur.timeline[tIdx].t;applyFrame();updateClock();};
+$('#fwd').onclick =()=>{setPlay(false);tIdx=Math.min(cur.timeline.length-1,tIdx+1);$('#range').value=tIdx;fireMarkers(cur.timeline[tIdx].t);applyFrame();updateClock();};
+$('#speed').onclick=()=>{spdI=(spdI+1)%SPEEDS.length;$('#speed').textContent=SPEEDS[spdI]+'×';};
+$('#range').oninput=e=>{setPlay(false);tIdx=+e.target.value;lastT=cur.timeline[tIdx].t;applyFrame();updateClock();};
+
+let last=performance.now(),acc=0;
 function animate(){
   requestAnimationFrame(animate);
-  const now=performance.now(), dt=(now-last)/1000; last=now;
+  const now=performance.now(),dt=(now-last)/1000; last=now;
   updateCam(dt);
   if(cur){
-    if(playing){
-      acc+=dt;
-      if(acc>0.06){ acc=0; tIdx=Math.min(tIdx+1, cur.timeline.length-1);
-        $('#range').value=tIdx; updateClock();
-        if(tIdx>=cur.timeline.length-1){ playing=false; $('#play').textContent='▶'; }
-        fireMarkers(cur.timeline[tIdx].t); applyFrame();
-      }
+    if(playing){ acc+=dt*SPEEDS[spdI];
+      if(acc>0.06){ acc=0; tIdx=Math.min(tIdx+1,cur.timeline.length-1); $('#range').value=tIdx; updateClock();
+        if(tIdx>=cur.timeline.length-1) setPlay(false);
+        fireMarkers(cur.timeline[tIdx].t); applyFrame(); }
     }
-    // advance pulses
-    for(let i=pulses.length-1;i>=0;i--){
-      const p=pulses[i]; p.u+=dt*0.9;
-      if(p.u>=1){ scene3d.remove(p.mesh); pulses.splice(i,1); continue; }
-      p.mesh.position.lerpVectors(p.from,p.to,p.u);
-      p.mesh.material.color.setHSL(0.53, 1, 0.5+0.2*Math.sin(p.u*10));
-    }
+    for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.8;
+      if(p.u>=1){ scene3d.remove(p.mesh); scene3d.remove(p.glow.sp); glows=glows.filter(g=>g!==p.glow); pulses.splice(i,1); continue; }
+      p.mesh.position.lerpVectors(p.from,p.to,p.u); p.glow.sp.position.copy(p.mesh.position);
+      p.mesh.material.color.setHSL(0.52,1,0.5+0.2*Math.sin(p.u*10)); }
   }
-  renderer.render(scene3d, cam);
+  renderer.render(scene3d,cam);
 }
 boot();
 </script>

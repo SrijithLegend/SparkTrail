@@ -1,0 +1,7 @@
+name: AC Level 2 - overcurrent (workplace, 22 kW)
+ambient_C: 35
+run_s: 3600
+target: { type: charger_ac2, limits: { normal_A: 32, max_A: 48 } }
+hub:    { grid_type: single_feeder, chargers: 1, transformer_kVA: 100, impedance_pu: 0.05 }
+attacks:
+  - { id: A-OC, entry_point: cyber.backend_link, mechanism: command_override, field: charging_profile.limit_A, to: 48, start_s: 60 }

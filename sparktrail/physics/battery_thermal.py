@@ -18,9 +18,12 @@ class BatteryThermal:
     T_ambient: float = 35.0     # Chennai afternoon
     T: float = 35.0             # current true temperature (deg C)
 
-    def step(self, dt: float, current_A: float, cooling_on: bool) -> float:
+    def step(self, dt: float, current_A: float, cooling_on: bool,
+             sink_T: float | None = None) -> float:
+        # reject heat to the coolant node when given one (HPC), else to ambient
+        sink = self.T_ambient if sink_T is None else sink_T
         h = self.cool_high if cooling_on else self.cool_low
         q_in = current_A ** 2 * self.R
-        q_out = h * (self.T - self.T_ambient)
+        q_out = h * (self.T - sink)
         self.T += (q_in - q_out) / self.C * dt
         return self.T

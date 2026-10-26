@@ -36,9 +36,11 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
     cur_temp: dict[str, float] = {}
     cur_curr: dict[str, float] = {}
     cur_report: dict[str, float] = {}
+    cur_cool: dict[str, float] = {}
     cur_load = 0.0
     cur_volt = 100.0
-    spoof_active: set[str] = set()
+    cur_freq = None
+    cur_bess = None
     t = 0.0
     all_t = sorted(by_t)
     ti = 0
@@ -46,31 +48,34 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
     while t <= run_s:
         while ti < len(all_t) and all_t[ti] <= t:
             for e in by_t[all_t[ti]]:
-                if e["field"] == "pack_temp_C":
-                    cur_temp[e["node"]] = e["value"]
-                elif e["field"] == "current_A":
-                    cur_curr[e["node"]] = e["value"]
-                elif e["field"] == "reported_temp_C":
-                    cur_report[e["node"]] = e["value"]
-                    spoof_active.add(e["node"])
-                elif e["field"] == "transformer_load_pct":
-                    cur_load = e["value"]
-                elif e["field"] == "bus_voltage_pct":
-                    cur_volt = e["value"]
+                f, v, n = e["field"], e["value"], e["node"]
+                if f == "pack_temp_C": cur_temp[n] = v
+                elif f == "current_A": cur_curr[n] = v
+                elif f == "reported_temp_C": cur_report[n] = v
+                elif f == "coolant_temp_C": cur_cool[n] = v
+                elif f == "transformer_load_pct": cur_load = v
+                elif f == "bus_voltage_pct": cur_volt = v
+                elif f == "frequency_Hz": cur_freq = v
+                elif f == "bess_soc": cur_bess = v
             ti += 1
         timeline.append({
             "t": t,
             "chargers": {n: {"temp": round(cur_temp.get(n, 35.0), 1),
                              "current": round(cur_curr.get(n, 0.0), 0),
-                             "reported": round(cur_report.get(n, cur_temp.get(n, 35.0)), 1)}
+                             "reported": round(cur_report.get(n, cur_temp.get(n, 35.0)), 1),
+                             "coolant": round(cur_cool[n], 1) if n in cur_cool else None}
                          for n in charger_names},
             "load": round(cur_load, 1),
             "volt": round(cur_volt, 1),
+            "freq": round(cur_freq, 3) if cur_freq is not None else None,
+            "bess": round(cur_bess, 1) if cur_bess is not None else None,
         })
         t += step_s
 
     return {
         "name": result["name"],
+        "charger_type": result.get("charger_type", ""),
+        "grid_type": result.get("grid_type", ""),
         "run_s": run_s,
         "step_s": step_s,
         "chargers": charger_names,
@@ -89,13 +94,11 @@ def build_scenes(scenario_paths: list[str], step_s: float = 5.0) -> list[dict]:
 
 if __name__ == "__main__":
     import sys
-    paths = sys.argv[1:] or [
-        "scenarios/dcfast_overcurrent_tempspoof.yaml",
-        "scenarios/cooling_suppression.yaml",
-        "scenarios/hub_mass_command.yaml",
-        "scenarios/hub_loadshed_suppression.yaml",
-        "scenarios/desync_loadshed.yaml",
-    ]
+    import glob
+    # headline first, then the rest sorted for a stable order
+    head = "scenarios/dcfast_overcurrent_tempspoof.yaml"
+    paths = sys.argv[1:] or [head] + sorted(p.replace("\\", "/") for p in glob.glob("scenarios/*.yaml")
+                                            if p.replace("\\", "/") != head)
     scenes = build_scenes(paths)
     Path("viz3d").mkdir(exist_ok=True)
     with open("viz3d/scenes.json", "w", encoding="utf-8") as f:

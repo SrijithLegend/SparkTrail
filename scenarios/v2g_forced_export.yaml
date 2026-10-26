@@ -1,0 +1,8 @@
+name: V2G - vehicle-link forced into export
+ambient_C: 35
+run_s: 1800
+target: { type: charger_v2g, limits: { normal_A: 63, max_A: 120 } }
+hub:    { grid_type: single_feeder, chargers: 1, transformer_kVA: 250, impedance_pu: 0.05 }
+attacks:
+  # spoof the EV's requested current negative -> the unit exports instead of charging
+  - { id: A-EXPORT, entry_point: cyber.vehicle_link, mechanism: command_override, field: vehicle.requested_A, to: -120, start_s: 60 }

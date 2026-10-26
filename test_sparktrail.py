@@ -74,6 +74,41 @@ def test_desync_delays_the_signal():
     assert out[5] == 1.0 and out[8] == 0.5
 
 
+def test_frequency_push_moves_the_bus():
+    r = scenario.run_file("scenarios/microgrid_freq_push.yaml")
+    assert r["score"]["freq_peak_Hz"] > 50.5, "freq setpoint override should push frequency up"
+
+
+def test_bess_resists_the_push():
+    push = scenario.run_file("scenarios/microgrid_freq_push.yaml")["score"]["freq_peak_Hz"]
+    bess = scenario.run_file("scenarios/microgrid_bess_freq.yaml")["score"]["freq_peak_Hz"]
+    assert bess < push, "BESS should hold the frequency closer to 50 Hz"
+
+
+def test_overvoltage_drift_crosses_limit():
+    r = scenario.run_file("scenarios/microgrid_overvoltage_drift.yaml")
+    assert r["score"]["max_bus_voltage_pct"] > 106.0, "slow drift should reach overvoltage"
+
+
+def test_hpc_coolant_tracked_and_pack_runs_hot():
+    r = scenario.run_file("scenarios/hpc_overcurrent_tempspoof.yaml")
+    assert r["score"]["peak_coolant_temp_C"] is not None
+    assert r["score"]["peak_pack_temp_C"] > 60.0, "HPC overcurrent should run very hot"
+
+
+def test_all_charger_and_grid_types_build():
+    from sparktrail.targets.charger import CHARGER_SPECS
+    from sparktrail.targets.microgrid import GRID_SPECS
+    base = {"ambient_C": 35, "run_s": 30,
+            "target": {"type": "charger_dcfast"}, "hub": {"chargers": 1}}
+    for ct in CHARGER_SPECS:
+        cfg = {**base, "target": {"type": ct}}
+        assert scenario.run(cfg)["events"], f"{ct} produced no events"
+    for gt in GRID_SPECS:
+        cfg = {**base, "hub": {"chargers": 2, "grid_type": gt}}
+        assert scenario.run(cfg)["events"], f"{gt} produced no events"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

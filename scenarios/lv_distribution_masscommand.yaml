@@ -1,0 +1,8 @@
+name: LV distribution microgrid - mass command overwhelms the PV offset
+ambient_C: 35
+run_s: 600
+target: { type: charger_dcfast, limits: { normal_A: 125, max_A: 250 } }
+hub:    { grid_type: lv_distribution, chargers: 8, transformer_kVA: 500, impedance_pu: 0.06, pv_kW: 120 }
+attacks:
+  - { id: A-MASS, entry_point: cyber.hub_controller, mechanism: mass_command, field: charging_profile.limit_A, to: 250, start_s: 30 }
+  - { id: A-SHED, entry_point: cyber.hub_controller, mechanism: dos_blackhole, field: hub.load_shed, start_s: 30 }
