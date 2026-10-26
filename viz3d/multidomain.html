@@ -102,6 +102,104 @@ input[type=range]{width:180px;accent-color:var(--amber)}
 .banner{position:fixed;inset:auto 0 70px 0;z-index:30;text-align:center;font:13px var(--mono);color:var(--danger)}
 @media(max-width:860px){#left,#right{position:fixed;width:auto;left:10px;right:10px;max-height:30%}
   #left{top:90px}#right{top:auto;bottom:150px}}
+
+/* === TVA CRT simulation + TVA Tempad side-console skin === */
+:root{
+  --paper:#101810;--paper-2:#17251c;--walnut:#090d0b;--brown:#d6c7a1;--brown-2:#8a713f;
+  --amber:#f18a36;--amber-hi:#ffc16a;--orange:#d45b25;--olive:#657d50;--teal:#64a99b;
+  --cream:#e8e2c9;--danger:#ff5a42;
+  --disp:"Oswald","Arial Narrow",sans-serif;--mono:"IBM Plex Mono","Consolas",monospace;
+}
+html,body{background:#080d0b;color:#e8e2c9}
+body{
+ background:radial-gradient(ellipse at center,#1a2419 0%,#0a100d 58%,#030605 100%);
+}
+canvas{
+ z-index:1;
+ filter:contrast(1.08) saturate(.78);
+}
+#paperfx{
+ z-index:48;opacity:.12;mix-blend-mode:screen;
+ background:repeating-linear-gradient(0deg,rgba(255,177,81,.09) 0px,rgba(255,177,81,.09) 1px,transparent 1px,transparent 4px),
+            linear-gradient(90deg,rgba(255,177,81,.045) 1px,transparent 1px) 0 0/48px 48px;
+}
+#vig{z-index:49;box-shadow:inset 0 0 180px rgba(0,0,0,.82),inset 0 0 3px 2px rgba(241,138,54,.16)}
+#topbar{
+ background:linear-gradient(180deg,#171b15,#090d0b);color:var(--cream);
+ border-bottom:2px solid var(--amber);box-shadow:0 3px 18px #000;
+}
+#topbar .wm{font-size:20px;letter-spacing:.18em;color:var(--amber-hi);text-shadow:0 0 12px #d45b2566}
+#lamps{background:#080c09;border-bottom:1px solid #58411f;box-shadow:0 5px 14px #0008}
+.lamp{color:#7d8a6e}.lamp.on{color:var(--amber-hi)}
+.panel{
+ background:linear-gradient(145deg,rgba(19,31,23,.97),rgba(7,13,10,.97));
+ border:1px solid #8c6c35;border-radius:3px;
+ box-shadow:0 8px 24px #0009,inset 0 0 22px rgba(90,129,86,.08);
+ backdrop-filter:blur(9px);
+}
+.plaque{
+ background:linear-gradient(90deg,#28372a,#101a14);color:#ffb85c;
+ border-bottom:1px solid #b27a34;border-radius:0;
+ font:600 11px var(--mono);letter-spacing:.15em;padding:11px 12px;
+}
+#left,#right{max-height:calc(100% - 142px)}
+#left{width:278px;left:14px}
+#right{width:300px;right:14px}
+#left .body,#right .body{background:rgba(8,15,11,.84);gap:9px}
+.sub{color:#a6b69b;opacity:1;font-size:10px;letter-spacing:.14em}
+.card{
+ background:linear-gradient(110deg,#1c2b20,#101a14);color:#e8e2c9;
+ border:1px solid #425a40;border-radius:2px;padding:9px 10px;
+ box-shadow:inset 3px 0 0 #334b35;transition:background .12s,border-color .12s;
+}
+.card:hover{transform:none;border-color:#e5a24b;background:linear-gradient(110deg,#2b3826,#17221a)}
+.card.sel{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber),0 0 10px #f18a3622;background:#2a2a1d}
+.card .nm{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:#f1e6c7}
+.card .meta{color:#a8b39b;font-size:10px;line-height:1.5}
+.tag{background:#29382a;color:#ffc16a;border:1px solid #536d4a;border-radius:1px}
+.card.sel .seltag{color:#ffb85c;border-color:#ffb85c;border-radius:0}
+.meter{background:#050a07;border:1px solid #4e5e3c;border-radius:2px}
+.meter .k{color:#9caf88;font-size:9px}
+.meter .v{color:#ffc16a;text-shadow:0 0 9px #f18a3655;font-size:21px}
+.bar{background:#202b20;border-radius:0;height:4px}
+.bar i{background:linear-gradient(90deg,#6d965b,#ffb34f)}
+.meter.breach .v{color:#ff745b}
+.cmp{color:#b6c3a8;font-size:10px}
+.cmp b{color:#ff745b}.cmp .ok{color:#8fc69a}
+.outcome{background:#111b13;color:#d6e3c8;border:1px solid #6d8555;border-radius:2px;font-size:11px}
+.outcome.variance{background:#28120f;border-color:#ff5a42;color:#ff9a7e}
+.outcome.contained{background:#102219;border-color:#64a99b;color:#9be1b4}
+.foot{color:#a7b39a;border-color:#4d603e;font-size:10px;line-height:1.7}
+.foot b{color:#ffc16a}
+#dock{bottom:38px}
+.transport{
+ background:linear-gradient(180deg,#172219,#080d0a);border:1px solid #8c6c35;border-radius:3px;
+ box-shadow:0 8px 24px #000a;padding:7px 10px;
+}
+.tva-btn{
+ background:linear-gradient(180deg,#ffbd5c,#dc772b);color:#17120a;border:1px solid #ffcf7c;border-radius:2px;
+ box-shadow:0 3px 0 #7f3a1b;font:700 13px var(--mono);letter-spacing:.09em;
+}
+.ctl{background:#1b2a20;color:#e8e2c9;border:1px solid #4f6647;border-radius:2px;font:11px var(--mono)}
+.ctl.tog{background:#17241a;color:#c3d1b7}
+.ctl.tog.on{background:#526b42;color:#fff2ce;border-color:#a4b77b}
+input[type=range]{accent-color:#f18a36}
+.clk2{color:#ffc16a;font-size:12px}
+#bottombar{background:#080d0b;color:#91a183;border-top:1px solid #4c3a20;font-size:10px}
+#gallery{background:rgba(3,7,5,.96)}
+#gallery h2{color:#ffc16a}
+#gallery .lead{color:#c8d4bd}
+.gcard{background:#142019;border:1px solid #5a6c45;border-radius:2px}
+.gcard .d{color:#ffc16a;font-family:var(--mono);font-size:13px}
+.gcard .i{color:#ff8264}.gcard .c,.gcard .n{color:#d0d9c6}
+.through{color:#d0d9c6;border-color:#536344}
+.banner{color:#ff8264;background:#100a08;padding:8px}
+@media(max-width:860px){
+ #left,#right{width:auto;max-height:28%}
+ #left{left:10px;right:10px}
+ #right{left:10px;right:10px;bottom:144px}
+}
+
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
