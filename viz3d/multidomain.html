@@ -271,51 +271,180 @@ function sprite(text){
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
   sp.scale.set(3,0.75,1); return sp;
 }
-function nodeGeo(kind){
-  if(kind==='attacker') return new THREE.OctahedronGeometry(0.7);
-  if(kind==='controller') return new THREE.BoxGeometry(1.1,1.1,1.1);
-  if(kind==='device') return new THREE.CylinderGeometry(0.55,0.65,1.5,20);
-  if(kind==='process') return new THREE.BoxGeometry(1.5,1.5,1.5);
-  return new THREE.BoxGeometry(0.8,0.8,0.8); // monitor
+// Procedural TVA prop shop: every node is a real 3D assembly, not a flat image.
+// Reference renders remain as inset enamel/CRT faceplates on the matching object.
+const MAT={
+  walnut:new THREE.MeshStandardMaterial({color:0x2b1e12,roughness:0.78,metalness:0.18}),
+  brass:new THREE.MeshStandardMaterial({color:0xb18a4b,roughness:0.42,metalness:0.68}),
+  enamel:new THREE.MeshStandardMaterial({color:0x5c4226,roughness:0.55,metalness:0.42}),
+  paper:new THREE.MeshStandardMaterial({color:0xd6bf96,roughness:0.9,metalness:0.02}),
+  dark:new THREE.MeshStandardMaterial({color:0x140e08,roughness:0.36,metalness:0.55}),
+  amber:new THREE.MeshStandardMaterial({color:0xf0a836,emissive:0xf0a836,emissiveIntensity:0.65,roughness:0.3,metalness:0.2}),
+  red:new THREE.MeshStandardMaterial({color:0xb03428,emissive:0x5a1008,emissiveIntensity:0.3,roughness:0.42}),
+  teal:new THREE.MeshStandardMaterial({color:0x467874,roughness:0.6,metalness:0.35})
+};
+function addMesh(g,geo,mat,x=0,y=0,z=0,rx=0,ry=0,rz=0){
+  const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);g.add(m);return m;
 }
-function clearScene(){ Object.values(nodeMeshes).forEach(n=>scene3d.remove(n.group));
+function box(g,w,h,d,mat,x=0,y=0,z=0){return addMesh(g,new THREE.BoxGeometry(w,h,d),mat,x,y,z);}
+function cylinder(g,rt,rb,h,mat,x=0,y=0,z=0,seg=16,rx=0,rz=0){
+  return addMesh(g,new THREE.CylinderGeometry(rt,rb,h,seg),mat,x,y,z,rx,0,rz);
+}
+function lamp(g,x,y,z,mat=MAT.amber,r=.09){
+  addMesh(g,new THREE.SphereGeometry(r,12,8),mat,x,y,z);
+  const halo=new THREE.PointLight(mat===MAT.red?0xb03428:0xffb947,0.22,2.4);halo.position.set(x,y,z);g.add(halo);
+}
+function ribbedBox(g,w,h,d,mat,ribs=5){
+  box(g,w,h,d,mat);
+  for(let i=0;i<ribs;i++){
+    const x=-w*.38+(w*.76)*(i/Math.max(1,ribs-1));
+    box(g,.045,h*.78,d*.12,MAT.brass,x,0,d*.53);
+  }
+}
+function addFaceplate(g,n,scale=1){
+  const img=NODE_IMG[n.id]; if(!img)return;
+  // Picture is an inset instrument panel on the object's front (+Z), never a billboard.
+  const frame=box(g,1.02*scale,.68*scale,.075,MAT.brass,0,.2,.46*scale);
+  const bezel=box(g,.94*scale,.60*scale,.035,MAT.dark,0,.2,.505*scale);
+  const tex=texLoader.load(img);tex.encoding=THREE.sRGBEncoding;
+  const panel=new THREE.Mesh(new THREE.PlaneGeometry(.88*scale,.52*scale),
+    new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));
+  panel.position.set(0,.2,.53*scale);g.add(panel);
+  // Tiny physical screws and an amber status lamp make the artwork read as hardware.
+  [[-.46,.48],[.46,.48],[-.46,-.08],[.46,-.08]].forEach(([x,y])=>
+    addMesh(g,new THREE.CylinderGeometry(.025,.025,.018,8),MAT.brass,x*scale,y*scale,.535*scale,Math.PI/2));
+  lamp(g,.42*scale,.58*scale,.54*scale);
+}
+function makeTVAModel(n){
+  const g=new THREE.Group(), id=n.id, kind=n.kind;
+  // Shared plinth and feet ground every device in the same tactile TVA workshop.
+  box(g,1.52,.16,1.12,MAT.walnut,0,-.76,0);
+  box(g,1.38,.055,1.0,MAT.brass,0,-.66,0);
+  const isPack=/PACK|BATTERY|BESS|BUFFER/i.test(id);
+  const isCharger=/CP_1|CHARGER|DOSING_PUMP/i.test(id);
+  const isTransformer=/TRANSFORMER|TAP_CHANGER|BREAKER|FEEDER/i.test(id);
+  const isServer=/CSMS|SCADA|ATTACKER|PLC|RTU|MONITOR|FUSION|BMS|CONTROLLER|HUB/i.test(id);
+  if(id==='ATTACKER'||kind==='attacker'){
+    // TVA anomaly beacon: faceted brass containment core in a guarded cage.
+    cylinder(g,.55,.62,.16,MAT.dark,0,-.52,0,12);
+    addMesh(g,new THREE.OctahedronGeometry(.52,0),MAT.red,0,.08,0,0,.2,0);
+    addMesh(g,new THREE.TorusGeometry(.72,.035,8,32),MAT.brass,0,.08,0,Math.PI/2,.15,0);
+    addMesh(g,new THREE.TorusGeometry(.88,.025,8,32),MAT.amber,0,.08,0,Math.PI/2,-.2,0);
+    for(let i=0;i<4;i++){const a=i*Math.PI/2;box(g,.07,1.45,.07,MAT.brass,Math.cos(a)*.67,.02,Math.sin(a)*.67);}
+    lamp(g,0,.75,0,MAT.red,.12);
+  }else if(isPack){
+    // Ribbed battery cassette with terminal caps and thermal indicator.
+    ribbedBox(g,1.2,1.05,.82,MAT.enamel,9);
+    box(g,.82,.11,.64,MAT.dark,0,.59,0);
+    for(let x of [-.28,0,.28])cylinder(g,.075,.075,.12,MAT.brass,x,.69,.1,12);
+    box(g,.12,.42,.04,MAT.teal,-.52,.03,.44);
+    box(g,.12,.58,.04,MAT.amber,-.3,.03,.44);
+    lamp(g,.48,.42,.45,MAT.red,.1);
+    addFaceplate(g,n,.83);
+  }else if(isCharger){
+    // Industrial charger pedestal, flared shoulders, CRT, hose and connector.
+    cylinder(g,.65,.72,.16,MAT.dark,0,-.52,0,20);
+    box(g,.88,1.45,.68,MAT.enamel,0,.22,0);
+    box(g,1.02,.12,.78,MAT.brass,0,.94,0);
+    box(g,.78,.08,.62,MAT.walnut,0,-.54,0);
+    box(g,.66,.45,.09,MAT.dark,0,.36,.36);
+    addFaceplate(g,n,.72);
+    const hose=new THREE.Mesh(new THREE.TorusGeometry(.28,.045,8,22,Math.PI*1.45),MAT.dark);
+    hose.position.set(.57,.05,-.02);hose.rotation.set(Math.PI/2,0,.4);g.add(hose);
+    box(g,.16,.24,.13,MAT.brass,.78,-.12,.05);
+    lamp(g,-.32,.77,.37);
+  }else if(isTransformer){
+    // Finned transformer / breaker cabinet with porcelain bushings and analog dial.
+    ribbedBox(g,1.42,1.02,.82,MAT.enamel,7);
+    box(g,1.48,.13,.88,MAT.brass,0,.57,0);
+    for(let x of [-.43,0,.43]){
+      cylinder(g,.13,.16,.24,MAT.paper,x,.72,-.12,12);
+      cylinder(g,.065,.065,.12,MAT.brass,x,.89,-.12,12);
+    }
+    cylinder(g,.22,.22,.09,MAT.brass,0,.25,.46,24,Math.PI/2);
+    cylinder(g,.17,.17,.035,MAT.dark,0,.25,.51,24,Math.PI/2);
+    addMesh(g,new THREE.BoxGeometry(.025,.13,.025),MAT.amber,0,.29,.535,0,0,-.3);
+    lamp(g,.53,-.1,.44,MAT.red,.08);
+    addFaceplate(g,n,.78);
+  }else if(isServer){
+    // Reel-to-reel / relay rack: stacked drawers, vent slots, dials and lamps.
+    box(g,1.32,1.5,.78,MAT.walnut,0,.08,0);
+    box(g,1.38,1.56,.08,MAT.brass,0,.08,.41);
+    for(let i=0;i<4;i++){
+      const y=.57-i*.34;
+      box(g,1.12,.26,.07,MAT.enamel,0,y,.47);
+      box(g,.53,.12,.025,MAT.dark,-.19,y,.52);
+      for(let j=0;j<3;j++)lamp(g,.25+j*.13,y,.54,j===2?MAT.red:MAT.amber,.025);
+      for(let j=0;j<5;j++)box(g,.025,.15,.025,MAT.brass,-.46+j*.07,y,.53);
+    }
+    // Spool hubs evoke period recording equipment without becoming decorative clutter.
+    for(let x of [-.42,.42]){
+      cylinder(g,.17,.17,.07,MAT.brass,x,.87,.49,20,Math.PI/2);
+      cylinder(g,.105,.105,.075,MAT.dark,x,.87,.535,20,Math.PI/2);
+    }
+    addFaceplate(g,n,.78);
+  }else if(kind==='controller'||/RTU|PLC|MONITOR|FUSION/i.test(id)){
+    // Wall-mount control unit with analog meters and toggle switches.
+    box(g,1.12,1.12,.62,MAT.enamel,0,0,0);
+    box(g,1.18,.1,.68,MAT.brass,0,.58,0);
+    box(g,.78,.38,.07,MAT.dark,0,.2,.34);
+    for(let x of [-.22,0,.22]){
+      cylinder(g,.09,.09,.035,MAT.brass,x,.2,.39,16,Math.PI/2);
+      addMesh(g,new THREE.BoxGeometry(.025,.12,.025),MAT.amber,x,.23,.42,0,0,-.25);
+    }
+    for(let x of [-.35,.35])lamp(g,x,-.32,.34,x<0?MAT.amber:MAT.red,.055);
+    addFaceplate(g,n,.75);
+  }else if(/TANK|WATER|CHILLER|PUMP|PIPE|VALVE/i.test(id)||kind==='device'){
+    // Process equipment: vessel, flanged pipes, valve wheel and pressure gauge.
+    cylinder(g,.52,.58,1.18,MAT.enamel,0,.02,0,20);
+    cylinder(g,.52,.52,.09,MAT.brass,0,.64,0,20);
+    cylinder(g,.55,.55,.08,MAT.dark,0,-.57,0,20);
+    cylinder(g,.09,.09,.34,MAT.brass,.53,.28,0,12,0,Math.PI/2);
+    cylinder(g,.21,.21,.055,MAT.brass,0,.35,.53,24,Math.PI/2);
+    cylinder(g,.16,.16,.025,MAT.dark,0,.35,.565,24,Math.PI/2);
+    addMesh(g,new THREE.BoxGeometry(.025,.12,.025),MAT.amber,0,.39,.59,0,0,.35);
+    addFaceplate(g,n,.72);
+  }else{
+    // Generic process unit: instrumented cabinet, not a sphere or placeholder cube.
+    ribbedBox(g,1.2,1.05,.78,MAT.enamel,5);
+    box(g,1.28,.12,.84,MAT.brass,0,.58,0);
+    box(g,.72,.36,.07,MAT.dark,0,.16,.42);
+    for(let x of [-.22,0,.22])lamp(g,x,.16,.47);
+    addFaceplate(g,n,.78);
+  }
+  // A small TVA asset plate is mounted on the side of every model.
+  box(g,.34,.13,.025,MAT.paper,.46,-.42,.43);
+  box(g,.04,.07,.025,MAT.red,.34,-.42,.45);
+  return g;
+}
+function clearScene(){
+  Object.values(nodeMeshes).forEach(n=>scene3d.remove(n.group));
   tubes.forEach(t=>scene3d.remove(t.mesh)); pulses.forEach(p=>scene3d.remove(p.mesh));
-  nodeMeshes={};tubes=[];pulses=[]; }
+  nodeMeshes={};tubes=[];pulses=[];
+}
 function buildScene(){
   clearScene();
-  const S=1.9;   // position scale — spread nodes so billboards don't overlap
+  const S=1.9;
   DOM.nodes.forEach(n=>{
-    const g=new THREE.Group();
-    let tintMat, labelY=1.5, img=NODE_IMG[n.id];
-    if(img){
-      // high-res TVA render as a camera-facing billboard (preserves quality);
-      // a slightly larger backing sprite is the depth-coloured frame/glow.
-      const back=new THREE.Sprite(new THREE.SpriteMaterial({color:0x5c4226,depthWrite:false}));
-      back.scale.set(3.35,1.98,1); back.renderOrder=1; g.add(back);
-      const tex=texLoader.load(img); tex.encoding=THREE.sRGBEncoding;
-      const bill=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthWrite:false}));
-      bill.scale.set(3.1,1.74,1); bill.renderOrder=2; g.add(bill);
-      tintMat=back.material; labelY=1.55;
-    } else {
-      const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:0.3,roughness:0.55,metalness:0.3});
-      g.add(new THREE.Mesh(nodeGeo(n.kind),mat)); tintMat=mat;
-    }
-    const lbl=sprite(n.label); lbl.position.y=labelY; lbl.renderOrder=3; g.add(lbl);
-    g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S); scene3d.add(g);
+    const g=makeTVAModel(n);
+    const lbl=sprite(n.label);lbl.position.set(0,1.25,0);lbl.renderOrder=3;g.add(lbl);
+    g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S);scene3d.add(g);
     g.traverse(o=>{if(o.isMesh||o.isSprite)o.userData.node=n.id;});
-    nodeMeshes[n.id]={group:g,mat:tintMat,pos:g.position.clone(),kind:n.kind,img:!!img};
+    // Tint only the model's protective plinth/frame. Keep the brass, enamel and CRT art legible.
+    const tintMat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:.22,roughness:.55,metalness:.3});
+    nodeMeshes[n.id]={group:g,mat:tintMat,pos:g.position.clone(),kind:n.kind,img:!!NODE_IMG[n.id]};
   });
-  DOM.links.forEach(([a,b])=>{ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
-    const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,0.04,8,false);
-    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x5c4226,emissiveIntensity:0.3});
-    const mesh=new THREE.Mesh(geo,mat); scene3d.add(mesh);
-    tubes.push({mesh,mat,a:pa.clone(),b:pb.clone(),base:new THREE.Color(0x5c4226),glow:0}); });
-  // fit the camera to the actual node bounds so the whole rig is framed
-  const xs=Object.values(nodeMeshes).map(n=>n.pos.x), zs=Object.values(nodeMeshes).map(n=>n.pos.z);
-  sceneC.set((Math.min(...xs)+Math.max(...xs))/2, 0, (Math.min(...zs)+Math.max(...zs))/2);
-  sceneR=Math.max(18, Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...zs)-Math.min(...zs))*0.95 + 10);
-  orb.pivot.copy(sceneC); orb.r=sceneR;
-  resetView();
+  DOM.links.forEach(([a,b])=>{
+    const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
+    const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,.04,8,false);
+    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x5c4226,emissiveIntensity:.3});
+    const mesh=new THREE.Mesh(geo,mat);scene3d.add(mesh);
+    tubes.push({mesh,mat,a:pa.clone(),b:pb.clone(),base:new THREE.Color(0x5c4226),glow:0});
+  });
+  const xs=Object.values(nodeMeshes).map(n=>n.pos.x),zs=Object.values(nodeMeshes).map(n=>n.pos.z);
+  sceneC.set((Math.min(...xs)+Math.max(...xs))/2,0,(Math.min(...zs)+Math.max(...zs))/2);
+  sceneR=Math.max(18,Math.max(Math.max(...xs)-Math.min(...xs),Math.max(...zs)-Math.min(...zs))*.95+10);
+  orb.pivot.copy(sceneC);orb.r=sceneR;resetView();
 }
 const DCOL=d=>d===0?0xB03428:d===1?0xD67828:d===2?0xF0A836:0x6b5225;
 function colorByDepth(){
