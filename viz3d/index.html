@@ -237,9 +237,9 @@ function installOrbit(){
 function pick(e){
   const m=new THREE.Vector2((e.clientX/innerWidth)*2-1, -(e.clientY/innerHeight)*2+1);
   raycaster.setFromCamera(m,cam);
-  const meshes=Object.values(nodes).map(n=>n.mesh);
-  const hit=raycaster.intersectObjects(meshes,false)[0];
-  if(hit){ const name=Object.keys(nodes).find(k=>nodes[k].mesh===hit.object); focusNode(name); }
+  const groups=Object.values(nodes).map(n=>n.group);
+  const hit=raycaster.intersectObjects(groups,true)[0];
+  if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o) focusNode(o.userData.node); }
 }
 function focusNode(name){
   selected=name; const n=nodes[name];
@@ -276,24 +276,74 @@ function addGlow(pos,color,size){
   scene3d.add(s); glows.push({sp:s,base:size}); return s;
 }
 
-// charger geometry per type (keeps types visually distinct)
-function chargerGeo(kind){
-  if(kind.includes('AC Level 1')) return new THREE.BoxGeometry(0.5,1.0,0.3);
-  if(kind.includes('AC Level 2')) return new THREE.BoxGeometry(0.6,1.3,0.4);
-  if(kind.includes('HPC')||kind.includes('ultra')) return new THREE.CylinderGeometry(0.42,0.5,2.2,16);
-  if(kind.includes('Buffered')) return new THREE.BoxGeometry(0.8,1.8,0.8);
-  if(kind.includes('V2G')) return new THREE.CylinderGeometry(0.38,0.42,1.7,6);
-  return new THREE.CylinderGeometry(0.36,0.42,1.8,12); // DC fast
+function addLabel(group,name,y){
+  const lbl=sprite(name.replace(/charger_0*/,'C').replace('hub_tx','GRID').replace('backend','CSMS'));
+  lbl.position.set(0,y,0); group.add(lbl); return lbl;
 }
+function tag(group,name){ group.traverse(o=>{if(o.isMesh)o.userData.node=name;}); }
 
+// simple box node (the site transformer / hub)
 function node(name,geo,color,pos,focus){
   const group=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.28,roughness:0.35,metalness:0.35});
+  const mat=new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:0.28,roughness:0.4,metalness:0.35});
   const mesh=new THREE.Mesh(geo,mat); group.add(mesh);
-  const lbl=sprite(name.replace('charger_','C').replace('hub_tx','GRID').replace('backend','CSMS'));
-  lbl.position.set(0,(geo.parameters.height||1.4)/2+0.7,0); group.add(lbl);
-  group.position.copy(pos); scene3d.add(group);
+  addLabel(group,name,(geo.parameters.height||1.4)/2+0.7);
+  group.position.copy(pos); scene3d.add(group); tag(group,name);
   nodes[name]={group,mesh,mat,pos:pos.clone(),focus:focus||9,base:color};
+  return nodes[name];
+}
+
+// EV charger built from primitives to read as a real unit (ref: Ather wall-box,
+// SINO / EV-FAST pedestals): plastic body + dark screen + green status strip +
+// connector holster, pedestals get a base. body = heat-tinted/pickable mesh.
+const BEIGE=0xd8cdb0;
+function makeCharger(name,kind,pos,focus){
+  const g=new THREE.Group();
+  const bodyMat=new THREE.MeshStandardMaterial({color:BEIGE,emissive:0x000000,emissiveIntensity:0,roughness:0.55,metalness:0.15});
+  const ac=kind.includes('AC Level'), hpc=kind.includes('HPC')||kind.includes('ultra');
+  const buf=kind.includes('Buffered'), v2g=kind.includes('V2G');
+  let w=0.75,d=0.6,h=2.0;
+  if(ac){ w=0.7;d=0.32;h=1.15; }            // wall-box
+  else if(hpc){ w=0.9;d=0.75;h=2.5; }        // big HPC cabinet
+  else if(buf){ w=1.0;d=0.9;h=1.9; }         // buffered: fat cabinet
+  else if(v2g){ w=0.72;d=0.6;h=1.8; }
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),bodyMat);
+  body.position.y=h/2; g.add(body);
+  if(!ac){ const base=new THREE.Mesh(new THREE.CylinderGeometry(w*0.7,w*0.8,0.22,20),
+      new THREE.MeshStandardMaterial({color:0x5a4a2e,roughness:0.8}));
+    base.position.y=0.11; g.add(base); }
+  const fz=d/2+0.015;                        // front face z
+  // dark screen
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(w*0.6,h*0.22,0.03),
+    new THREE.MeshStandardMaterial({color:0x0b0a06,emissive:0x16351f,emissiveIntensity:0.35}));
+  screen.position.set(0,h*0.72,fz); g.add(screen);
+  // green vertical status strip (Ather) — also the heat indicator
+  const led=new THREE.Mesh(new THREE.BoxGeometry(w*0.11,h*0.34,0.02),
+    new THREE.MeshBasicMaterial({color:0x33ff66}));
+  led.position.set(0,h*0.40,fz); g.add(led);
+  // connector holster on the side
+  const hol=new THREE.Mesh(new THREE.CylinderGeometry(w*0.09,w*0.09,h*0.2,10),
+    new THREE.MeshStandardMaterial({color:0x0b0a06,roughness:0.6}));
+  hol.position.set(w*0.5,h*0.55,d*0.1); g.add(hol);
+  if(hpc){ // cooling vent fins up the side
+    for(let i=0;i<4;i++){const f=new THREE.Mesh(new THREE.BoxGeometry(w*0.9,0.03,d*0.5),
+      new THREE.MeshStandardMaterial({color:0x7a6a45}));f.position.set(0,h*(0.5+i*0.09),-d*0.2);g.add(f);} }
+  addLabel(g,name,h+0.55);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:body,mat:bodyMat,led,pos:pos.clone(),focus:focus||9,base:BEIGE};
+  return nodes[name];
+}
+
+// backend = OCPP CSMS cloud (ref: "OCPP CSMS cloud platform"): a cluster of puffs
+function makeCloud(name,pos,focus){
+  const g=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color:0xe9ddbe,emissive:0x2a2210,emissiveIntensity:0.35,roughness:0.7});
+  const main=new THREE.Mesh(new THREE.SphereGeometry(0.72,18,18),mat); g.add(main);
+  [[-0.65,0.05,0,0.5],[0.62,0.0,0.1,0.52],[0.0,0.42,-0.05,0.46],[0.25,-0.12,0.35,0.38]]
+    .forEach(([x,y,z,r])=>{const s=new THREE.Mesh(new THREE.SphereGeometry(r,14,14),mat);s.position.set(x,y,z);g.add(s);});
+  addLabel(g,name,1.2);
+  g.position.copy(pos); scene3d.add(g); tag(g,name);
+  nodes[name]={group:g,mesh:main,mat,pos:pos.clone(),focus:focus||11,base:0xe9ddbe};
   return nodes[name];
 }
 function tube(a,b,color=0x243247){
@@ -312,7 +362,7 @@ function clearScene(){
 function buildScene(s){
   clearScene(); s._decor=[];
   const cns=s.chargers, n=cns.length;
-  node('backend',new THREE.BoxGeometry(1,1.7,0.8),0x8a7a55,new THREE.Vector3(-8,0,0),11);
+  makeCloud('backend',new THREE.Vector3(-8,1.4,0),11);
   const hub=node('hub_tx',new THREE.BoxGeometry(1.5,1.5,1.5),0x9a865a,new THREE.Vector3(0,0,0),12);
   tube(nodes['backend'].pos,nodes['hub_tx'].pos,0x5a4826);
   // grid-type decoration around the hub
@@ -322,7 +372,7 @@ function buildScene(s){
   cns.forEach((cn,i)=>{
     const ang=n===1?0:(i/(n-1)-0.5)*Math.PI*(n>10?1.4:0.95);
     const pos=new THREE.Vector3(Math.cos(ang)*R+5, 0, Math.sin(ang)*R);
-    const g=node(cn,chargerGeo(s.charger_type),0xbdae84,pos,8);
+    makeCharger(cn,s.charger_type,pos,8);
     tube(nodes['hub_tx'].pos,pos,0x4a3a1c);
     addGlow(pos,0x3b82f6,0.01); // heat halo, grows with temp
   });
@@ -376,8 +426,10 @@ function applyFrame(){
   if(!cur)return; const fr=cur.timeline[tIdx]; if(!fr)return;
   cur.chargers.forEach((cn,i)=>{
     const st=fr.chargers[cn]; if(!st||!nodes[cn])return;
-    const col=heat(st.temp); nodes[cn].mat.color.copy(col); nodes[cn].mat.emissive.copy(col);
-    const hot=Math.max(0,(st.temp-40)/18); nodes[cn].mat.emissiveIntensity=0.28+0.9*hot;
+    const col=heat(st.temp), hot=Math.max(0,Math.min(1,(st.temp-40)/18));
+    // body stays plastic-beige; it glows hotter via emissive, and the status strip goes green->red
+    nodes[cn].mat.emissive.copy(col); nodes[cn].mat.emissiveIntensity=0.12+0.8*hot;
+    if(nodes[cn].led) nodes[cn].led.material.color.set(new THREE.Color(0x33ff66).lerp(new THREE.Color(0xff3b30),hot));
     const gl=glows[i]; if(gl){gl.sp.material.color.copy(col); gl.sp.scale.setScalar(0.01+hot*2.6);}
     if(selected===cn) nodes[cn].mesh.scale.setScalar(1.12); else nodes[cn].mesh.scale.setScalar(1);
   });
