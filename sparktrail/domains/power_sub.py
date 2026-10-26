@@ -41,6 +41,11 @@ class PowerSub(Domain):
                      "setpoint_out_of_range", "T0836 Modify Parameter", "Ukraine grid, 2016",
                      {"link": "RTU->TAP_CHANGER", "setpoint": "bus_voltage_pu", "value": 1.14, "at_s": 45},
                      run_s=300, step_s=5),
+            Scenario("tap_stale_replay", "Stale high tap command replayed",
+                     "An old high-voltage tap command is re-applied and held past validity, so the bus stays over-voltage.",
+                     "replay_delay", "T0857 Point & Tag Modification", "Ukraine grid, 2016",
+                     {"link": "RTU->TAP_CHANGER", "setpoint": "bus_voltage_pu", "value": 1.12, "at_s": 45},
+                     run_s=300, step_s=5),
         ]
 
     def series(self, sc: Scenario, defended: bool):

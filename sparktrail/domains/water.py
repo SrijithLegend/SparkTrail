@@ -46,6 +46,11 @@ class Water(Domain):
                      {"link": "TANK->PLC", "setpoint": "tank_level_pct", "value": 60,
                       "at_s": 60, "spoof": {"reading": 40}},
                      run_s=360, step_s=5),
+            Scenario("dosing_replay", "Stale high-dose command replayed",
+                     "An old high-dose command is re-applied and held, so dosing stays out of the safe band.",
+                     "replay_delay", "T0857 Point & Tag Modification", "Oldsmar water treatment, 2021",
+                     {"link": "PLC->DOSING_PUMP", "setpoint": "dose_ppm", "value": 6000, "at_s": 60},
+                     run_s=360, step_s=5),
         ]
 
     def series(self, sc: Scenario, defended: bool):
@@ -60,7 +65,7 @@ class Water(Domain):
         t = 0.0
         while t <= sc.run_s:
             active = t >= at
-            if sc.id == "dosing_oob":
+            if sc.id in ("dosing_oob", "dosing_replay"):
                 target = inj["value"] if active else 700.0
                 if defended and active and target > 1000.0:
                     target = 1000.0

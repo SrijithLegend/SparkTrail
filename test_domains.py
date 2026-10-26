@@ -43,6 +43,12 @@ def test_ev_hub_reuses_real_engine():
     assert fusion, "fusion should catch the temp spoof"
 
 
+def test_all_five_mitre_categories_are_playable():
+    from sparktrail.domains.base import CATEGORIES
+    used = {s.category for d in REGISTRY.values() for s in d.scenarios()}
+    assert used == set(CATEGORIES), f"not every manipulation category is exposed: missing {set(CATEGORIES)-used}"
+
+
 def test_case_study_gallery_cited():
     assert len(CASE_STUDIES) >= 6
     assert all(c.get("incident") and c.get("consequence") for c in CASE_STUDIES)

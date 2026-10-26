@@ -38,6 +38,11 @@ class Pipeline(Domain):
                      "suppress_protection", "T0878 Alarm Suppression", "Pipeline-sector disruption, 2021",
                      {"link": "PLC->PRV", "setpoint": "relief", "value": 0, "at_s": 45},
                      run_s=300, step_s=5),
+            Scenario("pump_stale_replay", "Stale high pump command replayed",
+                     "An old high pump-speed command is re-applied and held past validity; pressure stays over the limit.",
+                     "replay_delay", "T0857 Point & Tag Modification", "Pipeline-sector disruption, 2021",
+                     {"link": "PLC->PUMP", "setpoint": "line_pressure_bar", "value": 86.0, "at_s": 45},
+                     run_s=300, step_s=5),
         ]
 
     def series(self, sc: Scenario, defended: bool):
@@ -50,7 +55,7 @@ class Pipeline(Domain):
         t = 0.0
         while t <= sc.run_s:
             active = t >= at
-            if sc.id == "pump_overspeed":
+            if sc.id in ("pump_overspeed", "pump_stale_replay"):
                 target = inj["value"] if active else 45.0
                 if defended and active and target > 70.0:
                     target = 68.0
