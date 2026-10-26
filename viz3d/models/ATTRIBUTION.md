@@ -1,52 +1,48 @@
-# 3D component art & model drop-in (SPARKTRAIL_MULTIDOMAIN §5)
+# TVA component models and asset attribution
 
-The multi-domain viewer (`viz3d/multidomain.html`) renders each node as a
-**high-res TVA component billboard** when one exists for its node id, and falls
-back to a **primitive** (analog box / cylinder / octahedron) otherwise — so the
-scene always renders.
+The multi-domain viewer (`viz3d/multidomain.html`) now builds **procedural 3D
+assemblies** from Three.js geometry and shared TVA materials. Components are
+actual scene meshes with depth, perspective, lighting, and physical details—not
+flat images stretched into camera-facing billboards.
 
-## Bundled component renders (TVA-styled, used as billboards)
-AI-generated (Gemini) in the TVA aesthetic, downscaled to 1200px JPEG and keyed
-by node id — "generate once, reuse everywhere" (shared ids share one render):
+## Procedural models
 
-- `shared/` — attacker, plc, monitor, fusion, transformer  (reused across domains)
+The current model builder creates distinct TVA-inspired silhouettes:
+- **Anomaly / attacker:** faceted containment core, brass guard cage, concentric rings, red warning lamp.
+- **Battery pack:** ribbed cassette, terminal caps, thermal indicator and status lamp.
+- **EV charger:** pedestal cabinet, CRT-style face, cable loop, connector and indicator.
+- **Transformer / breaker / feeder:** finned metal cabinet, porcelain bushings, analog gauge and warning lamp.
+- **Server / CSMS / SCADA / PLC / BMS / monitor / fusion:** walnut relay rack, stacked modules, vents, rotary controls and lamps.
+- **Water / HVAC / pump / valve / other process equipment:** vessel, flanges, pipe stub, pressure gauge and indicator.
+- **Fallback nodes:** ribbed instrumented equipment cabinet instead of a generic sphere.
+
+The scene shares a restrained material library: walnut, worn enamel, brass, aged paper, dark CRT glass, TVA amber, danger red and muted teal. A per-node plinth is tinted by propagation depth, while the model's main materials retain their TVA finish.
+
+## Existing image assets
+
+The original generated images remain available in the existing paths and are now
+used as **small inset instrument/CRT faceplates** on corresponding 3D models.
+They no longer replace the whole object as a billboard. Node ids without an
+image still receive a complete procedural model.
+
+Existing image paths referenced by `NODE_IMG`:
+- `shared/` — attacker, plc, monitor, fusion, transformer
 - `ev_hub/` — csms, cp1, bms, pack
 - `power_sub/` — scada, rtu, breaker, tap_changer, feeder, loads
 
-Node ids without a render (water tank, robot axis, chiller, pump, …) use primitives.
-To add one: drop a JPG/PNG at `viz3d/models/<group>/<name>.jpg` and add the node
-id → path to `NODE_IMG` in `multidomain.html`.
+## Optional authored GLB upgrades
 
-## Optional glTF models (drop-in, no code change)
-Real glTF models are a further upgrade — licence-clean, drop-in:
+Procedural meshes are self-contained and need no downloaded 3D assets. For a
+higher-fidelity authored model, a domain can still provide a licence-clean
+single-file `.glb` under `viz3d/models/<domain>/<name>.glb` and map the node
+in `scene_models` in the relevant domain module. The generated scene JSON
+already carries the optional `models` mapping; GLB loading can be added to the
+viewer as a separate enhancement.
 
-## How to add a model (two steps)
-1. Put a single-file `.glb` (textures embedded, ≤ ~2–3 MB, `draco`-compressed if
-   heavier) under `viz3d/models/<domain>/<name>.glb`.
-2. In that domain module (`sparktrail/domains/<domain>.py`) set
-   `scene_models = {"NODE_ID": "models/<domain>/<name>.glb"}`, then regenerate:
-   `python -m sparktrail.domains`.
+## Attribution
 
-The viewer loads `GLTFLoader` lazily; any node with a `model` path uses the glb,
-and **any node without one keeps its primitive** — so partial model sets are fine.
-
-## Sourcing (licence-clean only)
-- **Sketchfab** — filter *Downloadable* + Creative Commons. Prefer **CC0 / CC-BY**.
-- **Poly Pizza** — mostly CC0/CC-BY low-poly.
-- **Khronos glTF Sample Assets** — permissively licensed references.
-- Convert `.gltf` / `.obj` / `.fbx` → `.glb` with `gltf-pipeline` / `obj2gltf`.
-
-> This container's network may block model hosts; if a download is blocked, drop
-> the `.glb` into the folder yourself — the scene already renders without it.
-
-## Suggested signature model per domain (fill the licence line when you add one)
-| Domain | Node | Model | Author | Licence | Source URL |
-|---|---|---|---|---|---|
-| ev_hub | CP_1 | charger.glb | — | — | — |
-| power_sub | TAP_CHANGER | transformer.glb | — | — | — |
-| water | DOSING_PUMP | pump.glb | — | — | — |
-| robot_cell | ROBOT_AXIS | robot_arm.glb | — | — | — |
-| hvac | CHILLER | chiller.glb | — | — | — |
-| pipeline | PUMP | pump_station.glb | — | — | — |
-
-*(No models are bundled yet — every row above is a placeholder. Primitives render in the meantime.)*
+The procedural geometry and material assembly are implemented in
+`viz3d/multidomain.html` and use Three.js primitives. No third-party GLB models
+were added by this change, so no new external model licence or author attribution
+is required. The existing component renders are retained from the repository's
+prior assets.
