@@ -1,0 +1,385 @@
+<title>SparkTrail · Multi-Domain</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* SparkTrail multi-domain — TVA field terminal, generalized to any domain.
+   Reuses the TVA tokens; the 3D scene + meters are driven by viz3d/scenes/*.json. */
+:root{
+  --paper:#D6BF96;--paper-2:#C4A878;--walnut:#2B1E12;--brown:#3A2A1A;--brown-2:#5C4226;
+  --amber:#F0A836;--amber-hi:#FFCE6E;--orange:#D67828;--olive:#787842;--teal:#467874;
+  --cream:#F0E4CA;--danger:#B03428;
+  --disp:"Oswald","Arial Narrow",sans-serif;--mono:"IBM Plex Mono","Consolas",monospace;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;font-family:var(--mono);color:var(--brown);overflow:hidden;background:var(--paper)}
+canvas{display:block;position:fixed;inset:0}
+h1,h2,h3,.disp{font-family:var(--disp);text-transform:uppercase;letter-spacing:.06em;margin:0}
+#paperfx{position:fixed;inset:0;z-index:48;pointer-events:none;opacity:.05;mix-blend-mode:multiply;
+  background:linear-gradient(var(--brown) .5px,transparent .5px) 0 0/64px 64px,
+             linear-gradient(90deg,var(--brown) .5px,transparent .5px) 0 0/64px 64px}
+#vig{position:fixed;inset:0;z-index:48;pointer-events:none;box-shadow:inset 0 0 220px rgba(43,30,18,.55)}
+.hud{position:fixed;z-index:5}
+
+#topbar{top:0;left:0;right:0;height:54px;background:var(--walnut);color:var(--cream);border-bottom:3px solid var(--amber);
+  display:flex;align-items:center;gap:14px;padding:0 16px;z-index:20}
+#topbar .wm{font-family:var(--disp);font-size:19px;letter-spacing:.14em;color:var(--amber-hi)}
+#topbar .sp{flex:1}#topbar .cf{font-size:13px}#topbar .clk{font-size:15px;color:var(--amber-hi);min-width:70px;text-align:right}
+#lamps{top:54px;left:0;right:0;height:26px;background:#20160c;display:flex;align-items:center;gap:16px;padding:0 18px;
+  z-index:19;border-bottom:1px solid #4a3318}
+.lamp{display:flex;align-items:center;gap:6px;font:11px var(--mono);color:#8a714a;letter-spacing:.1em}
+.lamp i{width:10px;height:10px;border-radius:50%;background:#3a2a16;border:1px solid #000}
+.lamp.on{color:var(--amber-hi)}.lamp.on i{background:var(--amber-hi);box-shadow:0 0 12px var(--amber-hi)}
+.lamp.bad.on i{background:var(--danger);box-shadow:0 0 12px var(--danger)}.lamp.bad.on{color:#e88}
+#bottombar{bottom:0;left:0;right:0;height:28px;background:var(--walnut);color:var(--cream);display:flex;
+  align-items:center;justify-content:space-between;padding:0 16px;font:12px var(--mono);letter-spacing:.05em;z-index:20}
+
+.panel{background:var(--paper-2);border:3px solid var(--brown-2);border-radius:8px;position:relative;
+  box-shadow:0 4px 0 rgba(0,0,0,.28),inset 0 0 60px rgba(60,40,20,.25)}
+.plaque{background:var(--walnut);color:var(--amber-hi);font:600 13px/1 var(--mono);letter-spacing:.12em;
+  text-transform:uppercase;padding:9px 12px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between}
+.sub{font:600 11px var(--mono);letter-spacing:.12em;color:var(--brown);text-transform:uppercase;opacity:.8;margin-top:4px}
+
+/* left: domain intake + manipulation menu */
+#left{position:fixed;top:92px;left:12px;width:286px;max-height:calc(100% - 140px);display:flex;flex-direction:column;overflow:hidden}
+#left .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.card{background:var(--paper);border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px;cursor:pointer;
+  position:relative;transition:transform .08s}
+.card:hover{transform:translateX(2px);border-color:var(--amber)}
+.card.sel{border-color:var(--danger);box-shadow:0 0 0 1px var(--danger)}
+.card .nm{font-family:var(--disp);font-size:14px;color:var(--brown)}
+.card .meta{font:11px var(--mono);color:var(--brown-2);margin-top:1px}
+.tag{display:inline-block;font:10px var(--mono);letter-spacing:.04em;background:var(--walnut);color:var(--amber-hi);
+  border-radius:3px;padding:1px 5px;margin-top:3px}
+.card.sel .seltag{position:absolute;right:6px;top:6px;color:var(--danger);font:700 10px var(--disp);
+  border:2px solid var(--danger);border-radius:4px;padding:0 4px;transform:rotate(-7deg)}
+
+/* right: case file */
+#right{position:fixed;top:92px;right:12px;width:308px;max-height:calc(100% - 140px);display:flex;flex-direction:column;overflow:hidden}
+#right .body{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:9px}
+.meter{background:#140f07;border:2px solid var(--brown-2);border-radius:6px;padding:7px 9px}
+.meter .k{font:10px var(--mono);letter-spacing:.09em;color:#9a7a44;text-transform:uppercase;display:flex;justify-content:space-between}
+.meter .v{font:22px var(--mono);color:var(--amber-hi);text-shadow:0 0 8px rgba(240,168,54,.5);font-variant-numeric:tabular-nums;margin-top:2px}
+.meter .v small{font-size:12px;color:#9a7a44}
+.meter.breach .v{color:#ff8a6a;text-shadow:0 0 10px rgba(176,52,40,.7)}
+.bar{height:5px;border-radius:3px;background:#2a2010;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--olive),var(--amber))}
+.meter.breach .bar i{background:linear-gradient(90deg,var(--orange),var(--danger))}
+.cmp{font:11px var(--mono);color:var(--brown);display:flex;justify-content:space-between;padding:2px 0}
+.cmp b{color:var(--danger)} .cmp .ok{color:var(--olive)}
+.outcome{border:2px double var(--brown-2);border-radius:6px;padding:7px 9px;font:12px var(--mono);background:var(--paper)}
+.outcome.variance{border-color:var(--danger);color:var(--danger)}
+.outcome.contained{border-color:var(--olive);color:#4a5a1a}
+.foot{font:11px var(--mono);color:var(--brown-2);border-top:1px dashed var(--brown-2);padding-top:6px}
+.foot b{color:var(--brown)}
+
+/* dock */
+#dock{bottom:38px;left:0;right:0;display:flex;justify-content:center;z-index:10}
+.transport{display:flex;gap:8px;align-items:center;background:var(--walnut);border:2px solid var(--brown-2);
+  border-radius:10px;padding:8px 12px;box-shadow:0 4px 0 rgba(0,0,0,.3);flex-wrap:wrap;justify-content:center;max-width:94vw}
+.tva-btn{background:var(--amber);color:var(--walnut);border:none;border-radius:6px;box-shadow:0 4px 0 var(--orange);
+  font:700 15px var(--disp);letter-spacing:.06em;text-transform:uppercase;padding:10px 16px;cursor:pointer}
+.tva-btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--orange)}
+.ctl{background:var(--brown-2);color:var(--cream);border:1px solid #000;border-radius:5px;height:36px;min-width:36px;
+  padding:0 10px;font:13px var(--mono);cursor:pointer}
+.ctl.tog{background:var(--paper);color:var(--brown)}.ctl.tog.on{background:var(--olive);color:var(--cream)}
+input[type=range]{width:180px;accent-color:var(--amber)}
+.clk2{font:14px var(--mono);color:var(--amber-hi);min-width:52px;text-align:right}
+
+/* gallery modal */
+#gallery{position:fixed;inset:0;z-index:40;background:rgba(18,12,6,.9);display:none;overflow:auto;padding:70px 20px 30px}
+#gallery.show{display:block}
+#gallery .wrap{max-width:900px;margin:0 auto}
+#gallery h2{color:var(--amber-hi);font-size:26px;margin-bottom:4px}
+#gallery .lead{color:var(--cream);font:13px var(--mono);margin-bottom:16px;opacity:.85}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.gcard{background:var(--paper-2);border:2px solid var(--brown-2);border-radius:8px;padding:12px}
+.gcard.harm{border-color:var(--danger)}
+.gcard .d{font-family:var(--disp);font-size:16px;color:var(--brown)}
+.gcard .i{font:12px var(--mono);color:var(--danger);margin:2px 0 6px}
+.gcard .c{font:12px var(--mono);color:var(--brown);line-height:1.4}
+.gcard .n{font:11px var(--mono);color:var(--brown-2);margin-top:6px;font-style:italic}
+.gclose{position:fixed;top:64px;right:24px;z-index:41}
+.through{color:var(--cream);font:13px var(--mono);margin-top:18px;border-top:1px dashed var(--brown-2);padding-top:12px;opacity:.9}
+.banner{position:fixed;inset:auto 0 70px 0;z-index:30;text-align:center;font:13px var(--mono);color:var(--danger)}
+@media(max-width:860px){#left,#right{position:fixed;width:auto;left:10px;right:10px;max-height:30%}
+  #left{top:90px}#right{top:auto;bottom:150px}}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<div id="paperfx"></div><div id="vig"></div>
+
+<div class="hud" id="topbar">
+  <span class="wm">TIME VARIANCE AUTHORITY</span><span style="color:var(--amber)">· MULTI-DOMAIN</span>
+  <span class="sp"></span><span class="cf" id="casefile">CASE FILE TVA-000</span><span class="clk" id="clk">00:00</span>
+</div>
+<div class="hud" id="lamps">
+  <div class="lamp on" data-l="pwr"><i></i>POWER</div>
+  <div class="lamp" data-l="run"><i></i>RUNNING</div>
+  <div class="lamp bad" data-l="var"><i></i>VARIANCE</div>
+  <div class="lamp" data-l="def"><i></i>DEFENDED</div>
+  <div class="lamp" data-l="caught"><i></i>CAUGHT / BLOCKED</div>
+</div>
+
+<div class="hud panel" id="left">
+  <div class="plaque"><span>CASE INTAKE</span><button class="ctl" id="galbtn" style="height:22px;font-size:11px">PRIOR OCCURRENCES</button></div>
+  <div class="body">
+    <div class="sub">① Domain</div>
+    <div id="domains" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="sub">② Manipulation (MITRE ATT&CK for ICS)</div>
+    <div id="menu" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+<div class="hud panel" id="right">
+  <div class="plaque"><span>CASE FILE · DAMAGE REPORT</span><span id="repcase">TVA-000</span></div>
+  <div class="body">
+    <div id="outcome" class="outcome">Select a domain and a manipulation, then EXECUTE.</div>
+    <div class="sub">Consequence meters</div>
+    <div id="meters" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="sub">Defended vs undefended (peak)</div>
+    <div id="compare"></div>
+    <div class="foot" id="incident"></div>
+  </div>
+</div>
+
+<div class="hud" id="dock">
+  <div class="transport">
+    <button class="ctl" id="zoomout" title="Zoom out">－</button>
+    <button class="ctl" id="reset" title="Reset view (R)">⟲</button>
+    <button class="ctl" id="zoomin" title="Zoom in">＋</button>
+    <button class="tva-btn" id="exec">▸ EXECUTE</button>
+    <input type="range" id="range" min="0" max="100" value="0">
+    <button class="ctl" id="speed">1×</button>
+    <button class="ctl tog" id="deftog" title="Toggle defended">DEFENDED</button>
+    <span class="clk2" id="clock">0s</span>
+  </div>
+</div>
+
+<div class="hud" id="bottombar"><span>CHENNAI INSTITUTE OF TECHNOLOGY · CSBS</span><span id="ambient">SPARKTRAIL MULTI-DOMAIN</span></div>
+<div class="banner" id="banner" hidden></div>
+
+<div id="gallery"><div class="wrap">
+  <button class="tva-btn gclose" id="galclose">CLOSE</button>
+  <h2>PRIOR OCCURRENCES</h2>
+  <div class="lead">Public cyber-physical incidents — reporting, not simulation. No physics, no mechanism. Context that proves the pattern generalizes.</div>
+  <div class="gcards" id="gcards"></div>
+  <div class="through" id="through"></div>
+</div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+let INDEX=null, DOM=null, SCN=null, defended=false, VAR=null;
+let scene3d,cam,renderer,raycaster,nodeMeshes={},tubes=[],pulses=[],caseNo=0;
+let playing=false,tIdx=0; const SPEEDS=[0.5,1,2,4]; let spdI=1;
+
+async function boot(){
+  try{ INDEX=await (await fetch('./scenes/index.json')).json(); }
+  catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes/index.json — run `python -m sparktrail.domains` and serve viz3d/.'; return; }
+  buildDomainList(); buildGallery(); initGL(); wireNav(); animate();
+  loadDomain(INDEX.domains[0].id);
+}
+function buildDomainList(){
+  const box=$('#domains');
+  INDEX.domains.forEach(d=>{ const c=document.createElement('div'); c.className='card'; c.dataset.d=d.id;
+    c.innerHTML=`<span class="seltag">OPEN</span><div class="nm">${d.title}</div><div class="meta">${d.scenarios} manipulations · ${d.metrics} metrics</div>`;
+    c.onclick=()=>loadDomain(d.id); box.appendChild(c); });
+}
+async function loadDomain(id){
+  $$all('#domains .card').forEach(c=>c.classList.toggle('sel',c.dataset.d===id));
+  DOM=await (await fetch(`./scenes/${id}.json`)).json();
+  buildMenu(); buildScene(); selectScenario(DOM.scenarios[0].id);
+}
+const $$all=s=>document.querySelectorAll(s);
+function buildMenu(){
+  const box=$('#menu'); box.innerHTML='';
+  DOM.scenarios.forEach(s=>{ const c=document.createElement('div'); c.className='card'; c.dataset.s=s.id;
+    c.innerHTML=`<span class="seltag">PICK</span><div class="nm">${s.category_label}</div>`+
+      `<div class="meta">${s.description}</div><span class="tag">${s.mitre_ics}</span>`;
+    c.onclick=()=>selectScenario(s.id); box.appendChild(c); });
+}
+function selectScenario(sid){
+  $$all('#menu .card').forEach(c=>c.classList.toggle('sel',c.dataset.s===sid));
+  SCN=DOM.scenarios.find(s=>s.id===sid);
+  caseNo++; const cf='TVA-'+String(100+caseNo).padStart(3,'0');
+  $('#casefile').textContent='CASE FILE '+cf; $('#repcase').textContent=cf;
+  loadVariant();
+}
+function loadVariant(){
+  VAR=SCN.variants[defended?'defended':'undefended'];
+  tIdx=0; $('#range').max=VAR.timeline.length-1; $('#range').value=0;
+  colorByDepth(); renderReport(); updateClock(); setPlay(true);
+}
+
+// ---------- GL ----------
+function initGL(){
+  scene3d=new THREE.Scene(); scene3d.fog=new THREE.FogExp2(0x120c06,0.025);
+  cam=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,300);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+  document.body.insertBefore(renderer.domElement,document.body.firstChild);
+  scene3d.add(new THREE.HemisphereLight(0xffd79a,0x2a1d10,0.85));
+  const key=new THREE.PointLight(0xffd98a,1.6,160); key.position.set(6,18,14); scene3d.add(key);
+  const fill=new THREE.PointLight(0xffb060,0.9,120); fill.position.set(0,6,18); scene3d.add(fill);
+  const grid=new THREE.GridHelper(80,40,0x7a5a2e,0x3a2a16); grid.position.y=-1.6; scene3d.add(grid);
+  raycaster=new THREE.Raycaster(); installOrbit();
+  addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+}
+let orb={az:0.9,el:0.62,r:22,idle:0,drag:false,px:0,py:0,moved:0,pivot:new THREE.Vector3(2,0,0),tgt:new THREE.Vector3(2,0,0),tr:22};
+function installOrbit(){
+  const c=renderer.domElement;
+  c.addEventListener('pointerdown',e=>{orb.drag=true;orb.px=e.clientX;orb.py=e.clientY;orb.idle=0;orb.moved=0;});
+  addEventListener('pointerup',e=>{ if(orb.drag&&orb.moved<5) pick(e); orb.drag=false; });
+  addEventListener('pointermove',e=>{ if(!orb.drag)return; orb.idle=0;
+    orb.moved+=Math.abs(e.clientX-orb.px)+Math.abs(e.clientY-orb.py);
+    orb.az-=(e.clientX-orb.px)*0.006; orb.el+=(e.clientY-orb.py)*0.006;
+    orb.el=Math.max(0.12,Math.min(1.35,orb.el)); orb.px=e.clientX; orb.py=e.clientY; });
+  c.addEventListener('wheel',e=>{orb.tr=Math.max(8,Math.min(54,orb.tr+e.deltaY*0.014));e.preventDefault();},{passive:false});
+}
+function pick(e){
+  const m=new THREE.Vector2((e.clientX/innerWidth)*2-1,-(e.clientY/innerHeight)*2+1);
+  raycaster.setFromCamera(m,cam);
+  const hit=raycaster.intersectObjects(Object.values(nodeMeshes).map(n=>n.group),true)[0];
+  if(hit){ let o=hit.object; while(o&&!o.userData.node) o=o.parent; if(o){ const n=nodeMeshes[o.userData.node]; orb.tgt.copy(n.pos); orb.tr=8.5; } }
+}
+function resetView(){ orb.tgt.set(2,0,0); orb.tr=22; }
+function updateCam(dt){ orb.idle+=dt; if(!orb.drag&&orb.idle>4) orb.az+=dt*0.04;
+  orb.pivot.lerp(orb.tgt,Math.min(1,dt*3)); orb.r+=(orb.tr-orb.r)*Math.min(1,dt*3);
+  const r=orb.r,el=orb.el,p=orb.pivot;
+  cam.position.set(p.x+Math.cos(orb.az)*Math.cos(el)*r,p.y+Math.sin(el)*r,p.z+Math.sin(orb.az)*Math.cos(el)*r);
+  cam.lookAt(p); }
+
+function sprite(text){
+  const cv=document.createElement('canvas'); cv.width=256;cv.height=64;
+  const g=cv.getContext('2d'); g.fillStyle='#FFCE6E'; g.shadowColor='#F0A836'; g.shadowBlur=8;
+  g.font='30px "Oswald",sans-serif'; g.textAlign='center'; g.fillText(text,128,42);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
+  sp.scale.set(3,0.75,1); return sp;
+}
+function nodeGeo(kind){
+  if(kind==='attacker') return new THREE.OctahedronGeometry(0.7);
+  if(kind==='controller') return new THREE.BoxGeometry(1.1,1.1,1.1);
+  if(kind==='device') return new THREE.CylinderGeometry(0.55,0.65,1.5,20);
+  if(kind==='process') return new THREE.BoxGeometry(1.5,1.5,1.5);
+  return new THREE.BoxGeometry(0.8,0.8,0.8); // monitor
+}
+function clearScene(){ Object.values(nodeMeshes).forEach(n=>scene3d.remove(n.group));
+  tubes.forEach(t=>scene3d.remove(t.mesh)); pulses.forEach(p=>scene3d.remove(p.mesh));
+  nodeMeshes={};tubes=[];pulses=[]; }
+function buildScene(){
+  clearScene();
+  const S=0.9;
+  DOM.nodes.forEach(n=>{
+    const g=new THREE.Group();
+    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:0.3,roughness:0.55,metalness:0.3});
+    const mesh=new THREE.Mesh(nodeGeo(n.kind),mat); g.add(mesh);
+    const lbl=sprite(n.label); lbl.position.y=1.5; g.add(lbl);
+    g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S); scene3d.add(g);
+    g.traverse(o=>{if(o.isMesh)o.userData.node=n.id;});
+    nodeMeshes[n.id]={group:g,mesh,mat,pos:g.position.clone(),kind:n.kind};
+  });
+  DOM.links.forEach(([a,b])=>{ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
+    const geo=new THREE.TubeGeometry(new THREE.LineCurve3(pa.clone(),pb.clone()),1,0.04,8,false);
+    const mat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x5c4226,emissiveIntensity:0.3});
+    const mesh=new THREE.Mesh(geo,mat); scene3d.add(mesh);
+    tubes.push({mesh,mat,a:pa.clone(),b:pb.clone(),base:new THREE.Color(0x5c4226),glow:0}); });
+  resetView();
+}
+const DCOL=d=>d===0?0xB03428:d===1?0xD67828:d===2?0xF0A836:0x6b5225;
+function colorByDepth(){
+  const dep=VAR.depths;
+  for(const id in nodeMeshes){ const n=nodeMeshes[id];
+    const c=new THREE.Color(id in dep?DCOL(dep[id]):0x4a3620);
+    n.mat.color.copy(c); n.mat.emissive.copy(c); n.mat.emissiveIntensity=(id in dep)?0.6:0.2; }
+}
+function trailTo(nid){ const to=nodeMeshes[nid]&&nodeMeshes[nid].pos; if(!to)return;
+  let best=null,bd=1e9; tubes.forEach(r=>{const d=r.b.distanceTo(to);if(d<bd){bd=d;best=r;}}); if(best&&bd<1.6)best.glow=1; }
+function spawnPulse(a,b){ const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(0.22,14,14),new THREE.MeshBasicMaterial({color:0xFFCE6E}));
+  scene3d.add(m); pulses.push({mesh:m,from:pa.clone(),to:pb.clone(),u:0}); trailTo(b); }
+let firedBeads=false;
+function fireBeads(){ // one bead per link, staggered along the propagation order
+  if(firedBeads)return; firedBeads=true;
+  DOM.links.forEach(([a,b],i)=>setTimeout(()=>{ if(nodeMeshes[a]&&nodeMeshes[b]) spawnPulse(a,b); }, i*180));
+}
+
+// ---------- report / meters ----------
+const breach=(m,v)=> m.worse==='high'? v>m.limit : v<m.limit;
+function renderReport(){
+  const fr=VAR.timeline[tIdx]||VAR.timeline[0];
+  let html='';
+  DOM.metrics.forEach(m=>{ const v=fr.metrics[m.key]; const b=breach(m,v);
+    const pct = m.worse==='high'? v/m.limit*100 : (v/Math.max(m.normal,1))*100;
+    html+=`<div class="meter ${b?'breach':''}"><div class="k"><span>${m.label}</span><span>limit ${m.limit}${m.unit}</span></div>`+
+      `<div class="v">${v}<small> ${m.unit}</small></div><div class="bar"><i style="width:${Math.max(3,Math.min(100,pct))}%"></i></div></div>`;
+  });
+  $('#meters').innerHTML=html;
+  // compare peaks
+  const u=SCN.variants.undefended.peaks, d=SCN.variants.defended.peaks; let cmp='';
+  DOM.metrics.forEach(m=>{ cmp+=`<div class="cmp"><span>${m.label}</span><span>undef <b>${u[m.key]}</b> · def <span class="ok">${d[m.key]}</span> ${m.unit}</span></div>`; });
+  $('#compare').innerHTML=cmp;
+  // outcome
+  const f=VAR.flags; const o=$('#outcome');
+  // fusion only DETECTS (alert); the proxy PREVENTS. "Contained" needs no breach.
+  if(f.variance_at==null && (f.proxy_blocked||f.fusion_caught)){ o.className='outcome contained';
+    o.innerHTML=`<b>THREAT CONTAINED</b> — ${f.proxy_blocked?'Zero-Trust proxy blocked the command':'sensor fusion caught the spoof'}. Process stayed in band.`; }
+  else if(f.variance_at!=null){ o.className='outcome variance';
+    o.innerHTML=`<b>VARIANCE DETECTED</b> at T+${Math.round(f.variance_at)}s — a consequence metric crossed its safe limit.`+
+      (f.fusion_caught?` Sensor fusion flagged the spoof (alert-only — it detects; the proxy prevents).`:` No defense active.`); }
+  else { o.className='outcome'; o.textContent='Nominal — no limit crossed.'; }
+  $('#incident').innerHTML=`<b>MITRE ATT&CK for ICS:</b> ${SCN.mitre_ics}<br><b>Prior occurrence:</b> ${SCN.incident_ref}<br><b>Defense:</b> ${SCN.defense}`;
+  // lamps
+  $(`.lamp[data-l="var"]`).classList.toggle('on', f.variance_at!=null);
+  $(`.lamp[data-l="def"]`).classList.toggle('on', defended);
+  $(`.lamp[data-l="caught"]`).classList.toggle('on', f.proxy_blocked||f.fusion_caught);
+}
+function updateClock(){ const t=Math.round((VAR.timeline[tIdx]||{t:0}).t); $('#clock').textContent=t+'s';
+  $('#clk').textContent=`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`; }
+function setPlay(p){ playing=p; $('#exec').textContent=p?'❚❚ RUNNING':'▸ EXECUTE';
+  $(`.lamp[data-l="run"]`).classList.toggle('on',p); document.body.classList.toggle('running',p);
+  if(p){ firedBeads=false; } }
+
+// ---------- transport / nav ----------
+function wireNav(){
+  $('#exec').onclick=()=>{ if(tIdx>=VAR.timeline.length-1){tIdx=0;} setPlay(!playing); };
+  $('#reset').onclick=resetView;
+  $('#zoomin').onclick=()=>orb.tr=Math.max(8,orb.tr-2.5);
+  $('#zoomout').onclick=()=>orb.tr=Math.min(54,orb.tr+2.5);
+  $('#speed').onclick=()=>{spdI=(spdI+1)%SPEEDS.length;$('#speed').textContent=SPEEDS[spdI]+'×';};
+  $('#deftog').onclick=()=>{ defended=!defended; $('#deftog').classList.toggle('on',defended); loadVariant(); };
+  $('#range').oninput=e=>{ setPlay(false); tIdx=+e.target.value; renderReport(); updateClock(); };
+  $('#galbtn').onclick=()=>$('#gallery').classList.add('show');
+  $('#galclose').onclick=()=>$('#gallery').classList.remove('show');
+  addEventListener('keydown',e=>{ const tg=(e.target.tagName||''); if(tg==='INPUT'||tg==='SELECT')return;
+    const k=e.key; let h=true;
+    if(k==='ArrowLeft')orb.az-=0.14; else if(k==='ArrowRight')orb.az+=0.14;
+    else if(k==='ArrowUp')orb.el=Math.min(1.35,orb.el+0.09); else if(k==='ArrowDown')orb.el=Math.max(0.12,orb.el-0.09);
+    else if(k==='+'||k==='=')orb.tr=Math.max(8,orb.tr-2.5); else if(k==='-'||k==='_')orb.tr=Math.min(54,orb.tr+2.5);
+    else if(k==='r'||k==='R')resetView(); else if(k===' ')$('#exec').click(); else h=false;
+    if(h){orb.idle=0;e.preventDefault();} });
+}
+
+function buildGallery(){
+  const box=$('#gcards');
+  INDEX.case_studies.forEach(c=>{ const d=document.createElement('div'); d.className='gcard'+(c.human_harm?' harm':'');
+    d.innerHTML=`<div class="d">${c.domain}</div><div class="i">${c.incident}</div><div class="c">${c.consequence}</div>`+
+      (c.note?`<div class="n">${c.note}</div>`:''); box.appendChild(d); });
+  $('#through').innerHTML='<b>The through-line:</b> across every one of these, the control layer trusted a command or a sensor instead of checking it against physics — exactly the gap SparkTrail\'s proxy and fusion validator close, in any domain.';
+}
+
+let last=performance.now(),acc=0;
+function animate(){ requestAnimationFrame(animate);
+  const now=performance.now(),dt=(now-last)/1000; last=now; updateCam(dt);
+  if(VAR){ if(playing){ acc+=dt*SPEEDS[spdI];
+      if(acc>0.08){ acc=0; if(tIdx===0) fireBeads(); tIdx=Math.min(tIdx+1,VAR.timeline.length-1);
+        $('#range').value=tIdx; renderReport(); updateClock();
+        if(tIdx>=VAR.timeline.length-1) setPlay(false); } }
+    const amber=new THREE.Color(0xFFB000);
+    for(const r of tubes){ if(r.glow>0){ r.glow=Math.max(0,r.glow-dt*0.6);
+      r.mat.color.copy(r.base).lerp(amber,r.glow); r.mat.emissive.copy(r.mat.color); r.mat.emissiveIntensity=0.3+r.glow*1.4; } }
+    for(let i=pulses.length-1;i>=0;i--){ const p=pulses[i]; p.u+=dt*0.9;
+      if(p.u>=1){ scene3d.remove(p.mesh); pulses.splice(i,1); continue; }
+      p.mesh.position.lerpVectors(p.from,p.to,p.u); } }
+  renderer.render(scene3d,cam);
+}
+boot();
+</script>
