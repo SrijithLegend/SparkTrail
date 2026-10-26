@@ -29,6 +29,9 @@ pip install -r requirements-app.txt
 streamlit run app.py
 ```
 
+The landing page is `landing/index.html` (static, scroll-driven story; serve the
+repo root with `python -m http.server` so its "Launch the simulator" link resolves).
+
 The 3D viewer is `viz3d/index.html`; it loads `viz3d/scenes.json` from the same
 folder. Serve the folder (`cd viz3d && python -m http.server`) or open the
 published artifact. Pick a **TARGET** then an **ATTACK** from the two menus
