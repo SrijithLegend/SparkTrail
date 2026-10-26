@@ -170,6 +170,83 @@ input[type=range]{width:190px;accent-color:var(--amber);height:5px}
   font:700 22px var(--disp);letter-spacing:.12em;padding:6px 14px;transform:rotate(-8deg);opacity:.85}
 .banner{position:fixed;inset:auto 0 70px 0;z-index:62;text-align:center;font:13px var(--mono);color:var(--danger)}
 
+
+/* === Tempad side consoles + TVA CRT monitor === */
+:root{
+  --tempad-bg:#111a13;--tempad-panel:#1a281c;--tempad-line:#92713b;
+  --tempad-amber:#f4a344;--tempad-glow:#ffc66e;--tempad-ink:#d9c79b;
+}
+#req,#report{
+  background:
+    linear-gradient(135deg,rgba(244,163,68,.055) 25%,transparent 25%) 0 0/9px 9px,
+    linear-gradient(315deg,rgba(244,163,68,.035) 25%,transparent 25%) 0 0/9px 9px,
+    linear-gradient(145deg,#263326 0%,#101711 68%,#090e0b 100%);
+  color:var(--tempad-ink);border:2px solid var(--tempad-line);border-radius:3px;
+  box-shadow:0 0 0 3px #090d0a,0 10px 28px #000b,inset 0 0 24px #d18b2b12;
+}
+#req:before,#report:before{
+  content:"";position:absolute;inset:5px;pointer-events:none;border:1px solid #c18b3d66;z-index:2;
+}
+#req .plaque,#report .plaque{
+  position:relative;z-index:3;border-radius:0;padding:12px 14px;
+  background:linear-gradient(90deg,#3b452d,#182218 68%,#101610);
+  border-bottom:1px solid var(--tempad-amber);color:var(--tempad-glow);
+  font:600 11px var(--mono);letter-spacing:.15em;text-shadow:0 0 8px #f4a34444;
+}
+#req .body,#report .body{position:relative;z-index:1;background:#0b120dd9;color:var(--tempad-ink)}
+#req .sub,#report .sub{color:#c6b27c;opacity:1;font-size:10px;letter-spacing:.16em}
+#req .card{
+  background:linear-gradient(110deg,#253226,#111b14);border:1px solid #536343;border-radius:2px;
+  color:var(--tempad-ink);box-shadow:inset 0 0 0 1px #0a100b;padding:9px 10px;
+}
+#req .card .nm,#report .comp .nm{color:#f0e3bf;font-family:var(--mono);font-size:12px}
+#req .card .meta{color:#b3b88c;font-size:10px}
+#req .card .hole{background:#0d150f;box-shadow:inset 0 0 0 1px #b38a43}
+#req .card.sel{border-color:var(--tempad-amber);box-shadow:inset 0 0 0 1px #f4a34455,0 0 12px #f4a34420}
+#req .card.sel:after{color:var(--tempad-glow);border-color:var(--tempad-amber);background:#172016}
+#req .form29{background:#080e0a;border:1px solid #8a6a36;border-radius:2px;color:var(--tempad-glow)}
+#report .nixie{background:#050906;border:1px solid #5c6744;border-radius:2px}
+#report .nixie .k{color:#9ca879}
+#report .nixie .v{color:var(--tempad-glow);text-shadow:0 0 9px #f4a34455}
+#report .comp{background:#172319;border:1px solid #596a45;border-radius:2px}
+#report .comp .meta{color:#b8b58b}
+#report .dial .lbl,#report .dial .sc{color:var(--tempad-ink)}
+#report .crt{background:#050906;border:7px solid #756039;border-radius:2px;color:var(--tempad-glow);
+  box-shadow:inset 0 0 20px #f4a34413,0 0 0 1px #1d281b}
+#report .stamp{border-radius:1px}
+#dock .transport{background:linear-gradient(180deg,#1d2a1e,#080d09);border:1px solid #92713b;border-radius:3px}
+#dock .ctl{background:#1b2a1d;border:1px solid #566641;border-radius:2px}
+#dock .tva-btn{border-radius:2px}
+#temporal-screen{
+  position:fixed;z-index:2;pointer-events:none;
+  left:296px;right:326px;top:96px;bottom:82px;
+  border:15px solid #51432d;border-radius:30px;
+  background:linear-gradient(145deg,#b18b4b,#32291c 15%,#090d09 30%,#080c09 70%,#2b2419 90%,#8c6a37);
+  box-shadow:0 0 0 3px #17150f,0 0 0 5px #9d793d66,0 12px 35px #000c,
+    inset 0 0 0 2px #c9a25b66,inset 0 0 25px #000;
+}
+#temporal-screen:before{
+  content:"TEMPORAL LOOM  ·  TVA MONITOR  ·  SIGNAL STABLE";
+  position:absolute;top:-13px;left:22px;right:22px;height:10px;
+  color:#ffc66e;font:8px var(--mono);letter-spacing:.2em;text-align:center;
+}
+#temporal-screen:after{
+  content:"";position:absolute;inset:0;border-radius:12px;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,#ffbd5c0b 3px 4px),
+    radial-gradient(ellipse at center,transparent 48%,#0009 100%);
+  box-shadow:inset 0 0 0 2px #b88c4c55,inset 0 0 26px #f4a34412;
+}
+body:has(#temporal-screen) canvas{clip-path:inset(90px 315px 76px 285px round 18px)}
+@media(max-width:1100px){
+ #temporal-screen{left:285px;right:315px;border-width:10px}
+ body:has(#temporal-screen) canvas{clip-path:inset(90px 305px 76px 275px round 14px)}
+}
+@media(max-width:820px){
+ #temporal-screen{display:none}
+ body:has(#temporal-screen) canvas{clip-path:none}
+ #req,#report{background:#111a13}
+}
+
 @media(max-width:820px){
   #req,#report{position:fixed;width:auto;left:10px;right:10px;max-height:34%}
   #req{top:92px}#report{top:auto;bottom:150px}
@@ -181,6 +258,7 @@ input[type=range]{width:190px;accent-color:var(--amber);height:5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <div id="paperfx"></div><div id="vignette"></div>
+<div id="temporal-screen" aria-hidden="true"></div>
 
 <!-- ===== global chrome ===== -->
 <div class="hud" id="topbar">
@@ -347,7 +425,7 @@ function initGL(){
   const key=new THREE.PointLight(0xffd98a,1.7,120); key.position.set(8,16,10); scene3d.add(key);
   const fill=new THREE.PointLight(0xffb060,0.95,95); fill.position.set(2,6,15); scene3d.add(fill);  // front fill
   const rim=new THREE.PointLight(0xd67828,0.6,90); rim.position.set(-11,7,-7); scene3d.add(rim);
-  const grid=new THREE.GridHelper(60,60,0x7a5a2e,0x3a2a16); grid.position.y=-1.7; scene3d.add(grid);
+  // Intentionally no ground grid: the TVA CRT display stays clean and uncluttered.
   raycaster=new THREE.Raycaster();
   addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
   installOrbit();
