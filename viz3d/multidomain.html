@@ -200,12 +200,61 @@ input[type=range]{accent-color:#f18a36}
  #right{left:10px;right:10px;bottom:144px}
 }
 
+
+/* === TVA Tempad consoles + curved CRT housing === */
+#left,#right{
+ background:linear-gradient(145deg,#293529 0%,#121a13 62%,#090e0b 100%);
+ border:2px solid #92713b;border-radius:3px;
+ box-shadow:0 0 0 3px #090d0a,0 10px 28px #000b,inset 0 0 24px #d18b2b12;
+}
+#left:before,#right:before{content:"";position:absolute;inset:5px;border:1px solid #c18b3d66;pointer-events:none;z-index:2}
+#left .plaque,#right .plaque{
+ position:relative;z-index:3;background:linear-gradient(90deg,#3b452d,#182218 68%,#101610);
+ border-bottom:1px solid #f4a344;color:#ffc66e;border-radius:0;
+ text-shadow:0 0 8px #f4a34444;
+}
+#left .body,#right .body{position:relative;z-index:1;background:#0b120dd9;color:#d9c79b}
+#left .sub,#right .sub{color:#c6b27c;opacity:1}
+#left .card{background:linear-gradient(110deg,#253226,#111b14);border:1px solid #536343;border-radius:2px;
+ color:#d9c79b;box-shadow:inset 0 0 0 1px #0a100b}
+#left .card .nm{color:#f0e3bf;font-family:var(--mono)}
+#left .card .meta{color:#b3b88c}
+#left .card.sel{border-color:#f4a344;box-shadow:inset 0 0 0 1px #f4a34455,0 0 12px #f4a34420}
+#left .card.sel .seltag{color:#ffc66e;border-color:#f4a344}
+#right .meter{background:#050906;border-color:#5c6744;border-radius:2px}
+#right .meter .k{color:#9ca879}
+#right .meter .v{color:#ffc66e;text-shadow:0 0 9px #f4a34455}
+#right .outcome{background:#111b13;border-color:#6d8555}
+#right .outcome.variance{background:#28120f;border-color:#ff5a42}
+#right .cmp{color:#b6c3a8}
+#right .foot{color:#a7b39a;border-color:#4d603e}
+#dock .transport{background:linear-gradient(180deg,#1d2a1e,#080d09);border-color:#92713b;border-radius:3px}
+#dock .ctl{background:#1b2a1d;border-color:#566641;border-radius:2px}
+#dock .tva-btn{border-radius:2px}
+#temporal-screen{
+ position:fixed;z-index:2;pointer-events:none;left:304px;right:326px;top:96px;bottom:82px;
+ border:15px solid #51432d;border-radius:30px;
+ background:linear-gradient(145deg,#b18b4b,#32291c 15%,#090d09 30%,#080c09 70%,#2b2419 90%,#8c6a37);
+ box-shadow:0 0 0 3px #17150f,0 0 0 5px #9d793d66,0 12px 35px #000c,
+ inset 0 0 0 2px #c9a25b66,inset 0 0 25px #000;
+}
+#temporal-screen:before{content:"TEMPORAL LOOM · TVA MONITOR · SIGNAL STABLE";position:absolute;top:-13px;left:22px;right:22px;
+ height:10px;color:#ffc66e;font:8px var(--mono);letter-spacing:.2em;text-align:center}
+#temporal-screen:after{content:"";position:absolute;inset:0;border-radius:12px;
+ background:repeating-linear-gradient(0deg,transparent 0 3px,#ffbd5c0b 3px 4px),radial-gradient(ellipse at center,transparent 48%,#0009 100%);
+ box-shadow:inset 0 0 0 2px #b88c4c55,inset 0 0 26px #f4a34412}
+body:has(#temporal-screen) canvas{clip-path:inset(90px 315px 76px 295px round 18px)}
+@media(max-width:1100px){#temporal-screen{left:285px;right:315px;border-width:10px}
+ body:has(#temporal-screen) canvas{clip-path:inset(90px 305px 76px 275px round 14px)}}
+@media(max-width:860px){#temporal-screen{display:none}body:has(#temporal-screen) canvas{clip-path:none}}
+
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js" onerror="void 0"></script>
 
 <div id="paperfx"></div><div id="vig"></div>
+<div id="temporal-screen" aria-hidden="true"></div>
 
 <div class="hud" id="topbar">
   <span class="wm">TIME VARIANCE AUTHORITY</span><span style="color:var(--amber)">· MULTI-DOMAIN</span>
@@ -333,7 +382,7 @@ function initGL(){
   scene3d.add(new THREE.HemisphereLight(0xffd79a,0x2a1d10,0.85));
   const key=new THREE.PointLight(0xffd98a,1.6,160); key.position.set(6,18,14); scene3d.add(key);
   const fill=new THREE.PointLight(0xffb060,0.9,120); fill.position.set(0,6,18); scene3d.add(fill);
-  const grid=new THREE.GridHelper(80,40,0x7a5a2e,0x3a2a16); grid.position.y=-1.6; scene3d.add(grid);
+  // No ground grid: keep the TVA temporal display clean.
   raycaster=new THREE.Raycaster(); installOrbit();
   addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 }
