@@ -317,8 +317,9 @@ function addFaceplate(g,n,scale=1){
 }
 function makeTVAModel(n){
   const g=new THREE.Group(), id=n.id, kind=n.kind;
+  const depthMat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:.22,roughness:.55,metalness:.3});
   // Shared plinth and feet ground every device in the same tactile TVA workshop.
-  box(g,1.52,.16,1.12,MAT.walnut,0,-.76,0);
+  box(g,1.52,.16,1.12,depthMat,0,-.76,0);
   box(g,1.38,.055,1.0,MAT.brass,0,-.66,0);
   const isPack=/PACK|BATTERY|BESS|BUFFER/i.test(id);
   const isCharger=/CP_1|CHARGER|DOSING_PUMP/i.test(id);
@@ -415,6 +416,7 @@ function makeTVAModel(n){
   // A small TVA asset plate is mounted on the side of every model.
   box(g,.34,.13,.025,MAT.paper,.46,-.42,.43);
   box(g,.04,.07,.025,MAT.red,.34,-.42,.45);
+  g.userData.depthMat=depthMat;
   return g;
 }
 function clearScene(){
@@ -431,8 +433,7 @@ function buildScene(){
     g.position.set(n.pos[0]*S,n.pos[1],n.pos[2]*S);scene3d.add(g);
     g.traverse(o=>{if(o.isMesh||o.isSprite)o.userData.node=n.id;});
     // Tint only the model's protective plinth/frame. Keep the brass, enamel and CRT art legible.
-    const tintMat=new THREE.MeshStandardMaterial({color:0x5c4226,emissive:0x1a120a,emissiveIntensity:.22,roughness:.55,metalness:.3});
-    nodeMeshes[n.id]={group:g,mat:tintMat,pos:g.position.clone(),kind:n.kind,img:!!NODE_IMG[n.id]};
+    nodeMeshes[n.id]={group:g,mat:g.userData.depthMat,pos:g.position.clone(),kind:n.kind,img:!!NODE_IMG[n.id]};
   });
   DOM.links.forEach(([a,b])=>{
     const pa=nodeMeshes[a].pos,pb=nodeMeshes[b].pos;
