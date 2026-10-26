@@ -14,9 +14,9 @@ export default function Navbar() {
     <nav className={`nav ${scrolled ? "scrolled" : ""}`}>
       <Link href="/" className="logo">SparkTrail</Link>
       <div className="links">
-        <a href="#components">Components</a>
-        <a href="#attack">Attack</a>
-        <a href="#defense">Defense</a>
+        <a href="/#components">Components</a>
+        <a href="/#attack">Attack</a>
+        <a href="/#defense">Defense</a>
         <Link href="/specs">Specs</Link>
       </div>
       <Link href="/simulator" className="cta">Launch Simulator</Link>

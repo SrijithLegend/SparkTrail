@@ -29,6 +29,9 @@ pip install -r requirements-app.txt
 streamlit run app.py
 ```
 
+The experience site (Next.js scrollytelling + live propagation graph) is in
+`sparktrail-experience/`: `cd sparktrail-experience && npm install && npm run dev`.
+
 The 3D viewer is `viz3d/index.html`; it loads `viz3d/scenes.json` from the same
 folder. Serve the folder (`cd viz3d && python -m http.server`) or open the
 published artifact. Pick a **TARGET** then an **ATTACK** from the two menus
