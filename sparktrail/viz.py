@@ -37,6 +37,7 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
     cur_curr: dict[str, float] = {}
     cur_report: dict[str, float] = {}
     cur_load = 0.0
+    cur_volt = 100.0
     spoof_active: set[str] = set()
     t = 0.0
     all_t = sorted(by_t)
@@ -54,6 +55,8 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
                     spoof_active.add(e["node"])
                 elif e["field"] == "transformer_load_pct":
                     cur_load = e["value"]
+                elif e["field"] == "bus_voltage_pct":
+                    cur_volt = e["value"]
             ti += 1
         timeline.append({
             "t": t,
@@ -62,6 +65,7 @@ def frames(result: dict, step_s: float = 5.0) -> dict:
                              "reported": round(cur_report.get(n, cur_temp.get(n, 35.0)), 1)}
                          for n in charger_names},
             "load": round(cur_load, 1),
+            "volt": round(cur_volt, 1),
         })
         t += step_s
 
@@ -87,8 +91,10 @@ if __name__ == "__main__":
     import sys
     paths = sys.argv[1:] or [
         "scenarios/dcfast_overcurrent_tempspoof.yaml",
+        "scenarios/cooling_suppression.yaml",
         "scenarios/hub_mass_command.yaml",
         "scenarios/hub_loadshed_suppression.yaml",
+        "scenarios/desync_loadshed.yaml",
     ]
     scenes = build_scenes(paths)
     Path("viz3d").mkdir(exist_ok=True)

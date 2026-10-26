@@ -1,0 +1,24 @@
+name: Cooling suppression - temp read low so the BMS never cools
+ambient_C: 35
+dt_s: 1.0
+run_s: 5400
+target:
+  type: charger_dcfast
+  pack:   { C: 450000, R: 0.10, cool_low: 150, cool_high: 300 }
+  limits: { normal_A: 150, max_A: 250 }
+hub:
+  type: hub_feeder
+  chargers: 1
+  transformer_kVA: 500
+  impedance_pu: 0.05
+attacks:
+  # normal current (no overcurrent) - the ONLY lie is a low temperature reading,
+  # so the BMS keeps cooling idle and the pack rides ~5C hotter than it should.
+  - id: A-COOL-SUPPRESS
+    entry_point: cyber.sensor_bus
+    mechanism: sensor_spoof
+    field: sensor.pack_temp_C
+    hold_value: 30
+    start_s: 60
+monitor:
+  physics_aware: { divergence_C: 3, model: { C: 430000, R: 0.11 } }

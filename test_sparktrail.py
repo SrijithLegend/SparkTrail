@@ -37,6 +37,41 @@ def test_spoof_defeats_bms_so_pack_overheats():
 def test_mass_command_overloads_transformer():
     r = scenario.run_file("scenarios/hub_mass_command.yaml")
     assert r["score"]["peak_transformer_load_pct"] > 150.0
+    assert r["score"]["min_bus_voltage_pct"] < 100.0, "overload must drop bus voltage"
+
+
+def test_cooling_suppression_rides_hotter_than_cooled_baseline():
+    # with the temp spoofed low the BMS never cools; compare to the same run w/o attack
+    cfg = scenario.load("scenarios/cooling_suppression.yaml")
+    attacked = scenario.run(cfg)["score"]["peak_pack_temp_C"]
+    cfg_clean = scenario.load("scenarios/cooling_suppression.yaml"); cfg_clean["attacks"] = []
+    baseline = scenario.run(cfg_clean)["score"]["peak_pack_temp_C"]
+    assert attacked > baseline + 2.0, f"spoof should keep it hotter: {attacked} vs {baseline}"
+
+
+def test_replay_holds_stale_value_against_fresh_commands():
+    from sparktrail.attacks.injector import Injector
+    from sparktrail.attacks.schema import Attack
+    from sparktrail.core.events import EventStore
+    atk = Attack(id="R", entry_point="cyber.backend_link", mechanism="replay",
+                 field="charging_profile.limit_A", start_s=10)
+    inj = Injector([atk], EventStore())
+    assert inj.transform_command("charging_profile.limit_A", 125, 10) == 125  # captures 125
+    # a fresh "stop" command (0) arrives but the stale 125 is replayed instead
+    assert inj.transform_command("charging_profile.limit_A", 0, 20) == 125
+
+
+def test_desync_delays_the_signal():
+    from sparktrail.attacks.injector import Injector
+    from sparktrail.attacks.schema import Attack
+    from sparktrail.core.events import EventStore
+    atk = Attack(id="D", entry_point="cyber.hub_controller", mechanism="desync",
+                 field="hub.load_shed", delay_s=3, start_s=0)
+    inj = Injector([atk], EventStore())
+    out = [inj.transform_command("hub.load_shed", (1.0 if t < 5 else 0.5), float(t))
+           for t in range(10)]
+    # the drop to 0.5 should appear ~3s after t=5, not immediately
+    assert out[5] == 1.0 and out[8] == 0.5
 
 
 if __name__ == "__main__":

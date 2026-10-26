@@ -274,6 +274,7 @@ function renderPanel(fr){
   $('#tiles').innerHTML = tile('Impact', sc.impact_score) +
     tile('Peak pack', sc.peak_pack_temp_C, '°C') +
     tile('Transformer', sc.peak_transformer_load_pct, '%') +
+    tile('Min bus V', sc.min_bus_voltage_pct==null?'—':sc.min_bus_voltage_pct, '%') +
     tile('Detect Δ', sc.detection_delay_s==null?'—':sc.detection_delay_s, 's');
   const t=fr.t;
   const shown = cur.markers.filter(m=>m.t<=t).slice(-6).reverse();
@@ -283,7 +284,9 @@ function renderPanel(fr){
   const c0=fr.chargers[cur.chargers[0]];
   if(c0){
     const spoof = Math.abs(c0.reported-c0.temp)>1;
+    const vlow = fr.volt!=null && fr.volt < 94;
     rows = row('physics', t, `${cur.chargers[0]} true ${c0.temp}°C @ ${c0.current}A`,'modelled') +
+      (fr.volt!=null?row(vlow?'alert':'physics', t, `bus ${fr.volt}% · load ${fr.load}%`,'modelled'):'') +
       (spoof?row('attack', t, `reported ${c0.reported}°C (spoofed)`,'illustrative'):'') + rows;
   }
   $('#trace').innerHTML = rows || '<div class="row"><span class="m">no events yet</span></div>';

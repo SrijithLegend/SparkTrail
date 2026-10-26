@@ -1,0 +1,30 @@
+name: Load-shed desync - the shed signal arrives 90s late
+ambient_C: 35
+dt_s: 1.0
+run_s: 600
+target:
+  type: charger_dcfast
+  pack:   { C: 450000, R: 0.10, cool_low: 150, cool_high: 300 }
+  limits: { normal_A: 125, max_A: 250 }
+hub:
+  type: hub_feeder
+  chargers: 12
+  transformer_kVA: 690
+  impedance_pu: 0.05
+attacks:
+  - id: A-MASS-MAXPOWER
+    entry_point: cyber.hub_controller
+    mechanism: mass_command
+    field: charging_profile.limit_A
+    to: 250
+    start_s: 30
+  # the load-shed multiplier is delayed, so the transformer stays overloaded
+  # for the whole delay window instead of shedding immediately.
+  - id: A-SHED-DESYNC
+    entry_point: cyber.hub_controller
+    mechanism: desync
+    field: hub.load_shed
+    delay_s: 90
+    start_s: 0
+monitor:
+  physics_aware: { divergence_C: 3, model: { C: 430000, R: 0.11 } }
