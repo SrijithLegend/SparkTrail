@@ -16,6 +16,8 @@ export default function ScrollSequence({
   const canvas = useRef<HTMLCanvasElement>(null);
   const imgs = useRef<HTMLImageElement[]>([]);
   const progRef = useRef(0);
+  const beatsRef = useRef(beats);
+  beatsRef.current = beats;
   const [prog, setProg] = useState(0);
   const total = sequences.reduce((n, s) => n + s.count, 0);
 
@@ -42,7 +44,21 @@ export default function ScrollSequence({
         const ir = im.naturalWidth / im.naturalHeight, cr = cw / ch;
         let w = cw, h = ch;
         if (ir > cr) h = cw / ir; else w = ch * ir;
-        ctx.drawImage(im, (cw - w) / 2, (ch - h) / 2, w, h);
+        // keep the frame clear of the text: hide it under centred beats, slide it
+        // away from side beats (sideways on desktop, upward on phones)
+        const mobile = window.innerWidth < 1100; // matches the globals.css breakpoint
+        let dx = 0, dy = 0, hide = 0;
+        for (const bt of beatsRef.current) {
+          const o = windowed(progRef.current, bt.a, bt.b, bt.c, bt.d);
+          if (bt.align === "center") hide = Math.max(hide, o);
+          else if (mobile) dy -= o;
+          else dx += bt.align === "left" ? o : -o;
+        }
+        const k = 1 - (mobile ? 0.4 : 0.2) * Math.min(1, Math.abs(dx) + Math.abs(dy));
+        w *= k; h *= k;
+        ctx.globalAlpha = 1 - hide;
+        ctx.drawImage(im, (cw - w) / 2 + dx * cw * 0.28, (ch - h) / 2 + dy * ch * 0.2, w, h);
+        ctx.globalAlpha = 1;
       }
     };
 

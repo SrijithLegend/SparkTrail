@@ -48,7 +48,10 @@ export default function SparkTrailGraph({
 
     const sizeTo = () => {
       const w = el.clientWidth, h = el.clientHeight || 1;
-      renderer.setSize(w, h); cam.aspect = w / h; cam.updateProjectionMatrix();
+      renderer.setSize(w, h); cam.aspect = w / h;
+      // back the camera off on narrow screens so the whole graph (x ≈ ±10.5) fits
+      cam.position.z = Math.max(18, 10.5 / (Math.tan((cam.fov / 2) * Math.PI / 180) * cam.aspect));
+      cam.updateProjectionMatrix();
     };
     el.appendChild(renderer.domElement);
     sizeTo();

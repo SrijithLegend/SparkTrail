@@ -10,7 +10,8 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "public", "sequences")
 
 def font(sz):
     for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+              "C:/Windows/Fonts/segoeui.ttf"]:
         if os.path.exists(p):
             return ImageFont.truetype(p, sz)
     return ImageFont.load_default()
@@ -23,7 +24,7 @@ def ease(t):  # easeInOutCubic
 def rrect(draw, box, r, fill=None, outline=None, width=2):
     draw.rounded_rectangle(box, radius=r, fill=fill, outline=outline, width=width)
 
-def frame(parts, t, title):
+def frame(parts, t):
     img = Image.new("RGB", (W, H), BG)
     # subtle radial backdrop
     glow = Image.new("L", (W, H), 0)
@@ -63,9 +64,7 @@ def frame(parts, t, title):
         a = int(max(60, min(255, (e-0.2)/0.4*255)))
         d.text((x - tw/2, y + 42), name, font=F, fill=(235, 233, 226, a))
 
-    tf = font(32)
-    tb = d.textbbox((0, 0), title, font=tf)
-    d.text(((W-(tb[2]-tb[0]))/2, H-72), title, font=tf, fill=(255, 255, 255))
+    # no baked-in caption: the page's text beats carry the copy
     return img
 
 def ring(parts_names, colors):
@@ -84,14 +83,14 @@ CHARGER = ring(["Connector", "Power PCB", "Contactor", "Cooling", "Controller",
 MICRO = ring(["Transformer", "BESS", "Inverter", "Breaker", "Busbar", "Meter", "Feeder"],
              [AMBER, CYAN, BLUE, CYAN, AMBER, BLUE, CYAN])
 
-def render(name, parts, title, count=48):
+def render(name, parts, count=48):
     d = os.path.join(OUT, name)
     os.makedirs(d, exist_ok=True)
     for i in range(count):
         t = i/(count-1)
-        img = frame(parts, t, title)
+        img = frame(parts, t)
         img.save(os.path.join(d, f"frame_{i:03d}.jpg"), quality=82)
     print(f"{name}: {count} frames")
 
-render("charger-explode", CHARGER, "Engineered to deliver.")
-render("microgrid-explode", MICRO, "Wired to be trusted.")
+render("charger-explode", CHARGER)
+render("microgrid-explode", MICRO)

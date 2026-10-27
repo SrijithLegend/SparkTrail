@@ -12,12 +12,26 @@ export default function GraphSection() {
   const attack = windowed(p, 0.40, 0.48, 0.70, 0.78);
   const defense = windowed(p, 0.86, 0.92, 1.0, 1.0);
 
+  // keep the graph clear of the text: reveal text is on the right, attack text on
+  // the left (graph slides the other way; upward on phones); behind the centred
+  // CTA it recedes
+  const side = attack - reveal;
+  const mobile = typeof window !== "undefined" && window.innerWidth < 1100; // matches globals.css
+  const graphStyle = {
+    // one template for both layouts, so the server render (no window) matches at p=0
+    transform: `translate(${mobile ? 0 : side * 21}vw, ${mobile ? -Math.abs(side) * 22 : 0}vh) ` +
+      `scale(${mobile ? 1 : 1 - 0.15 * Math.abs(side)})`,
+    opacity: 1 - 0.75 * defense,
+  };
+
   return (
     <div className="pin-wrap" ref={wrap} id="attack" style={{ height: "480vh" }}>
       <div className="graph-pin">
-        <SparkTrailGraph progress={p} />
+        <div className="graph-mount" style={graphStyle}>
+          <SparkTrailGraph progress={p} />
+        </div>
 
-        <div className="beat center" style={{ opacity: reveal, transform: `translateY(${(1 - reveal) * 24}px)` }}>
+        <div className="beat right" style={{ opacity: reveal, transform: `translateY(${(1 - reveal) * 24}px)` }}>
           <div className="kicker">Same parts · new surface</div>
           <h2 className="title">The same hardware. Now the attack surface.</h2>
           <p className="sub strong">SparkTrail traces one forged command from the backend, through the charger
