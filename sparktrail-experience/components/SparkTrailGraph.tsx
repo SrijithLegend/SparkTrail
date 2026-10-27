@@ -15,13 +15,9 @@ function depthColor(d: number) {
   return YELLOW;
 }
 
-export default function SparkTrailGraph({
-  progress, interactive = false,
-}: { progress?: number; interactive?: boolean }) {
+export default function SparkTrailGraph({ progress }: { progress?: number }) {
   const mount = useRef<HTMLDivElement>(null);
   const progRef = useRef(progress ?? 0);
-  const replayRef = useRef<() => void>(() => {});
-  const [log, setLog] = useState<{ t: number; s: string; k: string; cls: string }[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => { progRef.current = progress ?? 0; }, [progress]);
@@ -60,12 +56,7 @@ export default function SparkTrailGraph({
     const nodeMeshes: Record<string, THREE.Mesh> = {};
     let depths: Record<string, number> = {};
     let maxDepth = 1;
-    let links: [string, string][] = [];
     let posOf: Record<string, THREE.Vector3> = {};
-    let beads: { a: THREE.Vector3; b: THREE.Vector3; start: number; dur: number }[] = [];
-    const beadPool: THREE.Mesh[] = [];
-    const beadGeo = new THREE.SphereGeometry(0.16, 16, 16);
-    const beadMat = new THREE.MeshBasicMaterial({ color: 0xffce6e });
 
     function label(text: string, p: [number, number, number], col: number) {
       const c = document.createElement("canvas"); c.width = 512; c.height = 64;
@@ -83,7 +74,6 @@ export default function SparkTrailGraph({
       if (disposed) return;
       depths = tr.node_depths || {};
       maxDepth = Math.max(1, ...Object.values(depths));
-      links = sc.links;
       sc.nodes.forEach((n) => (posOf[n.id] = new THREE.Vector3(...n.pos)));
 
       // links
@@ -105,34 +95,7 @@ export default function SparkTrailGraph({
         label(n.label + (inGraph ? `  ·d${depths[n.id]}` : ""), n.pos, IDLE);
       });
 
-      // event log (interactive)
-      if (interactive) {
-        const seen = new Set<string>();
-        const rows = (tr.events || [])
-          .filter((e) => ["attack", "monitor"].includes(e.layer) ||
-            /overload|trip|reject|spoof|alarm/.test(e.kind))
-          .filter((e) => { const s = e.source + e.kind; if (seen.has(s)) return false; seen.add(s); return true; })
-          .slice(0, 30)
-          .map((e) => ({
-            t: e.t, s: e.source, k: e.kind,
-            cls: e.layer === "attack" ? "atk"
-              : /alarm|spoof|trip/.test(e.kind) ? "alert" : "ok",
-          }));
-        setLog(rows);
-      }
-
-      // bead replay
-      const buildBeads = () => {
-        beads = [];
-        links.forEach(([a, b]) => {
-          const da = depths[a], db = depths[b];
-          if (da === undefined || db === undefined) return;
-          beads.push({ a: posOf[a], b: posOf[b], start: performance.now() + Math.min(da, db) * 480, dur: 560 });
-        });
-      };
-      replayRef.current = buildBeads;
       setReady(true);
-      if (interactive) buildBeads();
     });
 
     const tmp = new THREE.Color();
@@ -144,13 +107,9 @@ export default function SparkTrailGraph({
       // activation by depth
       let activeDepth: number;
       let cooling = 0;
-      if (interactive) {
-        activeDepth = maxDepth;
-      } else {
-        if (p < 0.33) activeDepth = -1;                 // reveal: all idle
-        else if (p < 0.85) activeDepth = Math.floor(((p - 0.33) / 0.52) * (maxDepth + 1));
-        else { activeDepth = maxDepth; cooling = (p - 0.85) / 0.15; } // defense cools
-      }
+      if (p < 0.33) activeDepth = -1;                 // reveal: all idle
+      else if (p < 0.85) activeDepth = Math.floor(((p - 0.33) / 0.52) * (maxDepth + 1));
+      else { activeDepth = maxDepth; cooling = (p - 0.85) / 0.15; } // defense cools
 
       Object.entries(nodeMeshes).forEach(([id, m]) => {
         const mat = m.material as THREE.MeshStandardMaterial;
@@ -172,17 +131,6 @@ export default function SparkTrailGraph({
         }
       });
 
-      // beads
-      beadPool.forEach((b) => (b.visible = false));
-      let bi = 0;
-      for (const bd of beads) {
-        const t = (now - bd.start) / bd.dur;
-        if (t < 0 || t > 1) continue;
-        let bead = beadPool[bi++];
-        if (!bead) { bead = new THREE.Mesh(beadGeo, beadMat); scene.add(bead); beadPool.push(bead); }
-        bead.visible = true; bead.position.lerpVectors(bd.a, bd.b, t);
-      }
-
       scene.rotation.y = Math.sin(now / 6000) * 0.12;
       renderer.render(scene, cam);
     }
@@ -195,28 +143,10 @@ export default function SparkTrailGraph({
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     };
-  }, [interactive]);
+  }, []);
 
   return (
     <div className="graph-mount" ref={mount}>
-      {interactive && (
-        <>
-          <button className="btn" style={{ position: "absolute", top: 18, right: 18, zIndex: 10 }}
-                  onClick={() => replayRef.current()}>▸ Replay propagation</button>
-          <div style={{
-            position: "absolute", bottom: 18, left: 18, width: 340, maxHeight: 180,
-            overflow: "auto", background: "rgba(10,13,16,.8)", border: "1px solid rgba(0,214,255,.25)",
-            borderRadius: 10, padding: "12px 14px", fontFamily: "monospace", fontSize: 11, lineHeight: 1.6,
-          }}>
-            {log.map((r, i) => (
-              <div key={i} style={{ color: r.cls === "atk" ? "#ff5252" : r.cls === "alert" ? "#ff9f43" : "#9ccc65" }}>
-                {String(Math.floor(r.t / 60)).padStart(2, "0")}:{String(Math.floor(r.t % 60)).padStart(2, "0")}
-                {"  "}{r.s.padEnd(10)} {r.k}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
       {!ready && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
           justifyContent: "center", color: "rgba(255,255,255,.3)", fontSize: 13, letterSpacing: ".2em" }}>

@@ -113,10 +113,7 @@ table.specs td.n{ color:var(--white90); font-weight:700; }
 
 /* simulator page */
 .sim-shell{ height:100vh; display:flex; flex-direction:column; }
-.sim-head{ padding:72px 24px 10px; text-align:center; }
-.sim-head h1{ font-size:30px; font-weight:800; letter-spacing:-.02em; }
-.sim-head p{ color:var(--white60); font-size:14px; margin-top:6px; }
-.sim-graph{ flex:1; position:relative; }
+.sim-frame{ flex:1; width:100%; border:0; margin-top:52px; } /* below the fixed 52px nav */
 .scroll-hint{ position:fixed; bottom:26px; left:50%; transform:translateX(-50%);
   font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--white30);
   animation:pulse 2.4s ease-in-out infinite; z-index:50; }

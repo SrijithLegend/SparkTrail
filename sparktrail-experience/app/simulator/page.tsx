@@ -1,18 +1,12 @@
 import Navbar from "@/components/Navbar";
-import SparkTrailGraph from "@/components/SparkTrailGraph";
 
+// The full TVA multi-domain simulator (repo viz3d/, synced into public/viz3d at build):
+// six domains, MITRE-tagged manipulations, playback, defended toggle, damage report.
 export default function Simulator() {
   return (
     <main className="sim-shell">
       <Navbar />
-      <div className="sim-head">
-        <h1>SparkTrail — Propagation Simulator</h1>
-        <p>DC-fast overcurrent with a spoofed temperature sensor. Nodes coloured by hops from the root cause.
-          Red = root · amber = direct · yellow = cascade · cyan = defender.</p>
-      </div>
-      <div className="sim-graph">
-        <SparkTrailGraph interactive />
-      </div>
+      <iframe className="sim-frame" src="/viz3d/multidomain.html" title="SparkTrail multi-domain simulator" />
     </main>
   );
 }
