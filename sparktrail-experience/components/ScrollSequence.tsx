@@ -6,12 +6,15 @@ type Beat = {
   align: "center" | "left" | "right";
   a: number; b: number; c: number; d: number;
   kicker?: string; title: string; titleTag?: "h1" | "h2"; sub?: string;
+  stamp?: string; stampTone?: "red" | "green" | "cyan";
 };
+/** Nav target placed at a fraction of the section's height (sticky content can't be a target). */
+type Anchor = { id: string; at: number };
 type Seq = { dir: string; count: number; pad?: number; ext?: string };
 
 export default function ScrollSequence({
-  sequences, heightVh, beats, heroGlow = false,
-}: { sequences: Seq[]; heightVh: number; beats: Beat[]; heroGlow?: boolean }) {
+  sequences, heightVh, beats, heroGlow = false, anchors = [],
+}: { sequences: Seq[]; heightVh: number; beats: Beat[]; heroGlow?: boolean; anchors?: Anchor[] }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const imgs = useRef<HTMLImageElement[]>([]);
@@ -37,7 +40,7 @@ export default function ScrollSequence({
       if (!ctx) return;
       const idx = Math.min(total - 1, Math.max(0, Math.round(progRef.current * (total - 1))));
       const im = imgs.current[idx];
-      ctx.fillStyle = "#050505";
+      ctx.fillStyle = "#0A0A0F"; // --bg; the frames are rendered on the same colour
       ctx.fillRect(0, 0, cv.width, cv.height);
       if (im && im.complete && im.naturalWidth) {
         const cw = cv.width, ch = cv.height;
@@ -99,15 +102,18 @@ export default function ScrollSequence({
 
   return (
     <div className="pin-wrap" ref={wrap} style={{ height: `${heightVh}vh` }}>
-      <div className="pin">
+      {anchors.map((a) => <span key={a.id} id={a.id} className="anchor" style={{ top: `${a.at * 100}%` }} />)}
+      <div className="pin crt">
         {heroGlow && <div className="hero-glow" />}
         <canvas ref={canvas} className="seq-canvas" />
+        <div className="dust" aria-hidden />
         {beats.map((bt, i) => {
           const o = windowed(prog, bt.a, bt.b, bt.c, bt.d);
           const Tag = bt.titleTag ?? "h2";
           return (
             <div key={i} className={`beat ${bt.align}`}
                  style={{ opacity: o, transform: `translateY(${(1 - o) * 26}px)` }}>
+              {bt.stamp && <span className={`tva-stamp ${bt.stampTone ?? ""}`}>{bt.stamp}</span>}
               {bt.kicker && <div className="kicker">{bt.kicker}</div>}
               {Tag === "h1" ? <h1 className="title">{bt.title}</h1> : <h2 className="title">{bt.title}</h2>}
               {bt.sub && <p className="sub">{bt.sub}</p>}

@@ -6,7 +6,13 @@ export default function Simulator() {
   return (
     <main className="sim-shell">
       <Navbar />
-      <iframe className="sim-frame" src="/viz3d/multidomain.html" title="SparkTrail multi-domain simulator" />
+      <div className="sim-bar glass">
+        <span className="t"><span className="ring" style={{ ["--s" as string]: "16px" }} />TVA simulation terminal</span>
+        <span className="live">Temporal loom online</span>
+      </div>
+      <div className="sim-monitor crt">
+        <iframe src="/viz3d/multidomain.html" title="SparkTrail multi-domain simulator" />
+      </div>
     </main>
   );
 }

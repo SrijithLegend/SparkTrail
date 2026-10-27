@@ -5,7 +5,7 @@ import math, os
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W = H = 720
-BG = (5, 5, 5)
+BG = (10, 10, 15)  # #0A0A0F, the site --bg: frame edges must be invisible
 OUT = os.path.join(os.path.dirname(__file__), "..", "public", "sequences")
 
 def font(sz):
@@ -30,7 +30,7 @@ def frame(parts, t):
     glow = Image.new("L", (W, H), 0)
     ImageDraw.Draw(glow).ellipse([W*0.12, H*0.10, W*0.88, H*0.78], fill=55)
     glow = glow.filter(ImageFilter.GaussianBlur(110))
-    img = Image.composite(Image.new("RGB", (W, H), (10, 13, 26)), img, glow)
+    img = Image.composite(Image.new("RGB", (W, H), (26, 14, 6)), img, glow)
 
     e = ease(t)
     cx, cy = W/2, H/2 - 10
@@ -51,13 +51,13 @@ def frame(parts, t):
         x, y = cx + tx*e, cy + ty*e
         d.line([cx, cy, x, y], fill=col + (70,), width=2)
     # central hub core
-    d.ellipse([cx-16, cy-16, cx+16, cy+16], fill=(0, 214, 255, 230))
+    d.ellipse([cx-16, cy-16, cx+16, cy+16], fill=(255, 107, 0, 235))
     # boxes
     for (name, tx, ty, col) in parts:
         x, y = cx + tx*e, cy + ty*e
         w, h = 112, 74
         d.rounded_rectangle([x-w/2, y-h/2, x+w/2, y+h/2], radius=14,
-                            fill=(34, 38, 48, 255), outline=col + (255,), width=3)
+                            fill=(30, 25, 24, 255), outline=col + (255,), width=3)
         # inner highlight bar
         d.rounded_rectangle([x-w/2+8, y-h/2+8, x+w/2-8, y-h/2+16], radius=4, fill=col + (90,))
         tb = d.textbbox((0, 0), name, font=F); tw = tb[2]-tb[0]
@@ -76,12 +76,13 @@ def ring(parts_names, colors):
         out.append((nm, math.cos(ang)*R, math.sin(ang)*R*0.82, colors[i % len(colors)]))
     return out
 
-CYAN, BLUE, AMBER = (0, 214, 255), (0, 80, 255), (240, 168, 54)
+# TVA palette: orange signature, amber secondary, a little cyan for the defended parts
+ORANGE, AMBER, CYAN = (255, 107, 0), (240, 168, 54), (0, 214, 255)
 
 CHARGER = ring(["Connector", "Power PCB", "Contactor", "Cooling", "Controller",
-                "HMI", "RFID", "Cabinet"], [CYAN, BLUE, CYAN, BLUE])
+                "HMI", "RFID", "Cabinet"], [ORANGE, AMBER, ORANGE, AMBER])
 MICRO = ring(["Transformer", "BESS", "Inverter", "Breaker", "Busbar", "Meter", "Feeder"],
-             [AMBER, CYAN, BLUE, CYAN, AMBER, BLUE, CYAN])
+             [ORANGE, AMBER, ORANGE, CYAN, ORANGE, AMBER, ORANGE])
 
 def render(name, parts, count=48):
     d = os.path.join(OUT, name)

@@ -25,21 +25,26 @@ export default function GraphSection() {
   };
 
   return (
-    <div className="pin-wrap" ref={wrap} id="attack" style={{ height: "480vh" }}>
-      <div className="graph-pin">
+    <div className="pin-wrap" ref={wrap} style={{ height: "480vh" }}>
+      {/* nav targets at the attack and defense beats: p = at·480/380 */}
+      <span id="attack" className="anchor" style={{ top: "43.5%" }} />
+      <span id="defense" className="anchor" style={{ top: "75.2%" }} />
+      <div className="graph-pin crt">
         <div className="graph-mount" style={graphStyle}>
           <SparkTrailGraph progress={p} />
         </div>
 
         <div className="beat right" style={{ opacity: reveal, transform: `translateY(${(1 - reveal) * 24}px)` }}>
-          <div className="kicker">Same parts · new surface</div>
+          <span className="tva-stamp">TVA case file 101</span>
+          <div className="kicker">Variant detected</div>
           <h2 className="title">The same hardware. Now the attack surface.</h2>
           <p className="sub strong">SparkTrail traces one forged command from the backend, through the charger
             and the battery controller, to the heat in the cells — every hop on one causal graph.</p>
         </div>
 
-        <div className="beat left" style={{ opacity: attack, transform: `translateY(${(1 - attack) * 24}px)` }} id="attack-beat">
-          <div className="kicker alert">Propagation</div>
+        <div className="beat left" style={{ opacity: attack, transform: `translateY(${(1 - attack) * 24}px)` }}>
+          <span className="tva-stamp red">Temporal breach</span>
+          <div className="kicker alert">Variant propagation</div>
           <h2 className="title alert">Watch it spread.</h2>
           <div className="metrics">
             <div className="metric"><div className="v hot">57.7°C</div><div className="l">real pack temp</div></div>
@@ -50,14 +55,15 @@ export default function GraphSection() {
             Nothing on the dashboard says so — but the physics does.</p>
         </div>
 
-        <div className="beat center" id="defense" style={{ opacity: defense, transform: `translateY(${(1 - defense) * 24}px)` }}>
-          <div className="kicker">Defense</div>
-          <h2 className="title">Catch it in the physics,<br />not the paperwork.</h2>
+        <div className="beat center" style={{ opacity: defense, transform: `translateY(${(1 - defense) * 24}px)` }}>
+          <span className="tva-stamp green">Timeline pruned</span>
+          <div className="kicker safe">Temporal defense</div>
+          <h2 className="title safe">Catch it in the physics,<br />not the paperwork.</h2>
           <p className="sub strong">A cross-layer check compares the electrical load against the thermal response
             and flags the spoof two seconds after the attack starts — before the paperwork ever looks wrong.</p>
           <div className="cta-row">
-            <Link href="/simulator" className="btn">Launch Simulator</Link>
-            <Link href="/specs" className="btn ghost">Read the architecture</Link>
+            <Link href="/simulator" className="btn" data-magnetic data-cursor="LAUNCH">Launch Simulator</Link>
+            <Link href="/specs" className="btn ghost" data-magnetic data-cursor="ANALYZE">Read the architecture</Link>
           </div>
         </div>
       </div>
