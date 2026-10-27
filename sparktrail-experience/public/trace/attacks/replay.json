@@ -1,0 +1,108 @@
+{
+ "meta": {
+  "id": "replay",
+  "title": "Sensor replay / stale freeze",
+  "mitre": "T0857 Replay / T0856 Spoof Reporting",
+  "kind": "session",
+  "description": "The last good telemetry frame is replayed forever, so the gauge freezes while real current keeps heating the pack behind it. Real peak 52.6 °C; with the proxy on, 43.2 °C.",
+  "peak_real_temp": 52.6,
+  "defended_peak_temp": 43.2,
+  "commanded_a": 220.0,
+  "caught_by": "sensor fusion",
+  "caught_at_s": 2,
+  "physics_monitor_at_s": 252,
+  "metrics": [
+   {
+    "v": "52.6°C",
+    "l": "real pack temp",
+    "tone": "hot"
+   },
+   {
+    "v": "220A",
+    "l": "forced current",
+    "tone": ""
+   },
+   {
+    "v": "+2s",
+    "l": "flagged by sensor fusion",
+    "tone": "ok"
+   }
+  ]
+ },
+ "node_depths": {
+  "ATTACKER": 0,
+  "CSMS": 1,
+  "CP_1": 2,
+  "BMS": 3,
+  "PACK": 4,
+  "FUSION": 5,
+  "MONITOR": 5
+ },
+ "events": [
+  {
+   "id": 1,
+   "t": 60,
+   "layer": "attack",
+   "source": "ATTACKER",
+   "kind": "attack.inject",
+   "detail": {
+    "forced_a": 220,
+    "sensor": "replay"
+   }
+  },
+  {
+   "id": 2,
+   "t": 60,
+   "layer": "cyber",
+   "source": "CSMS",
+   "kind": "ocpp.SetChargingProfile",
+   "detail": {
+    "limit_a": 220
+   }
+  },
+  {
+   "id": 3,
+   "t": 60.0,
+   "layer": "control",
+   "source": "CP_1",
+   "kind": "charger.apply_limit",
+   "detail": {
+    "current_a": 220
+   }
+  },
+  {
+   "id": 4,
+   "t": 60,
+   "layer": "cyber",
+   "source": "BMS",
+   "kind": "bms.reading_replay",
+   "detail": {}
+  },
+  {
+   "id": 6,
+   "t": 62.0,
+   "layer": "monitor",
+   "source": "FUSION",
+   "kind": "monitor.sensor_spoof",
+   "detail": {}
+  },
+  {
+   "id": 7,
+   "t": 312.0,
+   "layer": "monitor",
+   "source": "MONITOR",
+   "kind": "monitor.alarm",
+   "detail": {}
+  },
+  {
+   "id": 5,
+   "t": 1915.0,
+   "layer": "physics",
+   "source": "PACK",
+   "kind": "pack.over_limit",
+   "detail": {
+    "temp_c": 50.0
+   }
+  }
+ ]
+}

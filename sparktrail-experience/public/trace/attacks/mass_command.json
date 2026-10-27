@@ -1,0 +1,80 @@
+{
+ "meta": {
+  "id": "mass_command",
+  "title": "Mass max-power broadcast",
+  "mitre": "T0831 Manipulation of Control",
+  "kind": "hub",
+  "description": "One forged command drives all 12 chargers in the hub to full power at once, overloading the shared transformer to 174% and sagging the bus 8.7%. The Zero-Trust proxy refuses it and holds the load to 104%.",
+  "loading_pct": 173.9,
+  "vdrop_pct": 8.7,
+  "defended_loading_pct": 104.3,
+  "caught_by": "Zero-Trust proxy",
+  "caught_at_s": null,
+  "metrics": [
+   {
+    "v": "174%",
+    "l": "transformer loading",
+    "tone": "hot"
+   },
+   {
+    "v": "8.7%",
+    "l": "bus voltage drop",
+    "tone": "warn"
+   },
+   {
+    "v": "104%",
+    "l": "with the proxy on",
+    "tone": "ok"
+   }
+  ]
+ },
+ "node_depths": {
+  "ATTACKER": 0,
+  "HUB": 1,
+  "TRANSFORMER": 2,
+  "CP_7": 3
+ },
+ "events": [
+  {
+   "id": 1,
+   "t": 30,
+   "layer": "attack",
+   "source": "ATTACKER",
+   "kind": "attack.inject",
+   "detail": {
+    "mechanism": "mass_command"
+   }
+  },
+  {
+   "id": 2,
+   "t": 30,
+   "layer": "control",
+   "source": "HUB",
+   "kind": "hub.broadcast_max_power",
+   "detail": {
+    "chargers": 12,
+    "limit_a": 250
+   }
+  },
+  {
+   "id": 3,
+   "t": 30.0,
+   "layer": "physics",
+   "source": "TRANSFORMER",
+   "kind": "transformer.overload",
+   "detail": {
+    "load_pct": 173.9
+   }
+  },
+  {
+   "id": 4,
+   "t": 30.0,
+   "layer": "physics",
+   "source": "CP_7",
+   "kind": "bus.undervoltage",
+   "detail": {
+    "bus_pct": 91.3
+   }
+  }
+ ]
+}

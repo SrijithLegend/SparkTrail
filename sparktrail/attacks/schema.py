@@ -14,6 +14,8 @@ ENTRY_POINTS = {
 MECHANISMS = {
     "command_override", "sensor_spoof", "setpoint_drift", "replay",
     "mass_command", "desync", "dos_blackhole",
+    "sensor_drift",   # reading biased low, growing at rate_per_s
+    "sensor_offset",  # false-data synthesis: real dynamics, shifted by offset_C
 }
 
 
@@ -26,7 +28,8 @@ class Attack:
     start_s: float = 0.0
     to: Optional[float] = None          # command_override / mass_command target
     hold_value: Optional[float] = None  # sensor_spoof frozen value
-    rate_per_s: Optional[float] = None  # setpoint_drift
+    rate_per_s: Optional[float] = None  # setpoint_drift / sensor_drift
+    offset_C: Optional[float] = None    # sensor_offset: how far below reality the fake curve sits
     delay_s: Optional[float] = None     # desync: how late the message arrives
     end_s: Optional[float] = None
     targets: Optional[list[str]] = None # mass_command fan-out; None = all

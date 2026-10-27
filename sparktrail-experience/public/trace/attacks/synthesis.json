@@ -1,0 +1,108 @@
+{
+ "meta": {
+  "id": "synthesis",
+  "title": "False-data synthesis",
+  "mitre": "T0856 Spoof Reporting (model-aware)",
+  "kind": "session",
+  "description": "A fabricated temperature curve that rises exactly as Joule heating predicts, just 15 °C below reality — built to pass rate checks, so the absolute physics model has to catch it. Real peak 54.2 °C; with the proxy on, 43.2 °C.",
+  "peak_real_temp": 54.2,
+  "defended_peak_temp": 43.2,
+  "commanded_a": 230.0,
+  "caught_by": "physics monitor",
+  "caught_at_s": 0,
+  "physics_monitor_at_s": 0,
+  "metrics": [
+   {
+    "v": "54.2°C",
+    "l": "real pack temp",
+    "tone": "hot"
+   },
+   {
+    "v": "230A",
+    "l": "forced current",
+    "tone": ""
+   },
+   {
+    "v": "at onset",
+    "l": "flagged by physics monitor",
+    "tone": "ok"
+   }
+  ]
+ },
+ "node_depths": {
+  "ATTACKER": 0,
+  "CSMS": 1,
+  "CP_1": 2,
+  "BMS": 3,
+  "PACK": 4,
+  "FUSION": 5,
+  "MONITOR": 5
+ },
+ "events": [
+  {
+   "id": 1,
+   "t": 60,
+   "layer": "attack",
+   "source": "ATTACKER",
+   "kind": "attack.inject",
+   "detail": {
+    "forced_a": 230,
+    "sensor": "sensor_offset"
+   }
+  },
+  {
+   "id": 2,
+   "t": 60,
+   "layer": "cyber",
+   "source": "CSMS",
+   "kind": "ocpp.SetChargingProfile",
+   "detail": {
+    "limit_a": 230
+   }
+  },
+  {
+   "id": 3,
+   "t": 60.0,
+   "layer": "control",
+   "source": "CP_1",
+   "kind": "charger.apply_limit",
+   "detail": {
+    "current_a": 230
+   }
+  },
+  {
+   "id": 4,
+   "t": 60,
+   "layer": "cyber",
+   "source": "BMS",
+   "kind": "bms.reading_sensor_offset",
+   "detail": {}
+  },
+  {
+   "id": 7,
+   "t": 60.0,
+   "layer": "monitor",
+   "source": "MONITOR",
+   "kind": "monitor.alarm",
+   "detail": {}
+  },
+  {
+   "id": 6,
+   "t": 62.0,
+   "layer": "monitor",
+   "source": "FUSION",
+   "kind": "monitor.sensor_spoof",
+   "detail": {}
+  },
+  {
+   "id": 5,
+   "t": 1703.0,
+   "layer": "physics",
+   "source": "PACK",
+   "kind": "pack.over_limit",
+   "detail": {
+    "temp_c": 50.0
+   }
+  }
+ ]
+}

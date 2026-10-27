@@ -79,4 +79,19 @@ class Injector:
             if atk.mechanism == "sensor_spoof":
                 self._active_cause[field] = self._fire(atk, t, f"{field} held {atk.hold_value}")
                 return atk.hold_value
+            if atk.mechanism == "sensor_drift":
+                # each reading only slightly lower than the last: no single frame looks wrong
+                self._active_cause[field] = self._fire(atk, t, f"{field} drifting low")
+                return value - (atk.rate_per_s or 0.0) * (t - atk.start_s)
+            if atk.mechanism == "replay":
+                # freeze the last good reading at onset and keep sending it
+                if atk.id not in self._replay_hold:
+                    self._replay_hold[atk.id] = atk.hold_value if atk.hold_value is not None else value
+                self._active_cause[field] = self._fire(atk, t, f"{field} replayed (stale {self._replay_hold[atk.id]})")
+                return self._replay_hold[atk.id]
+            if atk.mechanism == "sensor_offset":
+                # false-data synthesis: the fake curve rises exactly as Joule heating predicts,
+                # so rate/energy-balance checks pass; only an absolute model sees the offset
+                self._active_cause[field] = self._fire(atk, t, f"{field} synthesized -{atk.offset_C}")
+                return value - (atk.offset_C or 0.0)
         return value

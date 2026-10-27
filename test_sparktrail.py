@@ -133,6 +133,32 @@ def test_propagation_depth_tracks_cascade():
     assert r["node_depths"], "node depths should be populated for the heatmap"
 
 
+def test_sensor_side_drift_replay_and_synthesis():
+    from sparktrail.attacks.injector import Injector
+    from sparktrail.attacks.schema import Attack
+    from sparktrail.core.events import EventStore
+    f = "sensor.pack_temp_C"
+    mk = lambda **kw: Injector([Attack(id="S", entry_point="cyber.sensor_bus", field=f, start_s=10, **kw)], EventStore())
+    drift = mk(mechanism="sensor_drift", rate_per_s=0.5)
+    assert drift.transform_reading(f, 40.0, 10) == 40.0 and drift.transform_reading(f, 40.0, 20) == 35.0
+    replay = mk(mechanism="replay")
+    assert replay.transform_reading(f, 33.0, 10) == 33.0 and replay.transform_reading(f, 48.0, 90) == 33.0
+    synth = mk(mechanism="sensor_offset", offset_C=15)
+    assert synth.transform_reading(f, 50.0, 30) == 35.0, "fake curve keeps real dynamics, shifted down"
+    assert synth.transform_reading(f, 50.0, 5) == 50.0, "inactive before onset"
+
+
+def test_synthesis_is_caught_by_the_absolute_physics_model():
+    cfg = scenario.load("scenarios/dcfast_overcurrent_tempspoof.yaml")
+    cfg["attacks"] = [dict(id="I", entry_point="cyber.backend_link", mechanism="command_override",
+                           field="charging_profile.limit_A", to=230, start_s=60),
+                      dict(id="S", entry_point="cyber.sensor_bus", mechanism="sensor_offset",
+                           field="sensor.pack_temp_C", offset_C=15, start_s=60)]
+    s = scenario.run(cfg)["score"]
+    assert s["peak_pack_temp_C"] > 50.0, "BMS trusts the low fake curve, so the pack runs past its limit"
+    assert s["monitor_alert_t_s"] is not None, "the independent thermal model must see the offset"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

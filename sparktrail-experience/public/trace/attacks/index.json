@@ -1,0 +1,153 @@
+{
+ "attacks": [
+  {
+   "id": "overcurrent",
+   "title": "Forced overcurrent + temperature spoof",
+   "mitre": "T0836 Modify Parameter + T0856 Spoof Reporting",
+   "kind": "session",
+   "description": "The charge current is forced to 250 A while the temperature sensor is pinned to a safe-looking 30 °C, so the BMS never derates and the pack cooks. Real peak 57.7 °C; with the proxy on, 43.2 °C.",
+   "peak_real_temp": 57.7,
+   "defended_peak_temp": 43.2,
+   "commanded_a": 250.0,
+   "caught_by": "physics monitor",
+   "caught_at_s": 0,
+   "physics_monitor_at_s": 0,
+   "metrics": [
+    {
+     "v": "57.7°C",
+     "l": "real pack temp",
+     "tone": "hot"
+    },
+    {
+     "v": "250A",
+     "l": "forced current",
+     "tone": ""
+    },
+    {
+     "v": "at onset",
+     "l": "flagged by physics monitor",
+     "tone": "ok"
+    }
+   ]
+  },
+  {
+   "id": "temp_drift",
+   "title": "Thermal-sensor drift",
+   "mitre": "T0856 Spoof Reporting Message",
+   "kind": "session",
+   "description": "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap from reality keeps widening while current is pushed up. Real peak 49.5 °C; with the proxy on, 43.2 °C.",
+   "peak_real_temp": 49.5,
+   "defended_peak_temp": 43.2,
+   "commanded_a": 200.0,
+   "caught_by": "sensor fusion",
+   "caught_at_s": 2,
+   "physics_monitor_at_s": 263,
+   "metrics": [
+    {
+     "v": "49.5°C",
+     "l": "real pack temp",
+     "tone": "hot"
+    },
+    {
+     "v": "200A",
+     "l": "forced current",
+     "tone": ""
+    },
+    {
+     "v": "+2s",
+     "l": "flagged by sensor fusion",
+     "tone": "ok"
+    }
+   ]
+  },
+  {
+   "id": "replay",
+   "title": "Sensor replay / stale freeze",
+   "mitre": "T0857 Replay / T0856 Spoof Reporting",
+   "kind": "session",
+   "description": "The last good telemetry frame is replayed forever, so the gauge freezes while real current keeps heating the pack behind it. Real peak 52.6 °C; with the proxy on, 43.2 °C.",
+   "peak_real_temp": 52.6,
+   "defended_peak_temp": 43.2,
+   "commanded_a": 220.0,
+   "caught_by": "sensor fusion",
+   "caught_at_s": 2,
+   "physics_monitor_at_s": 252,
+   "metrics": [
+    {
+     "v": "52.6°C",
+     "l": "real pack temp",
+     "tone": "hot"
+    },
+    {
+     "v": "220A",
+     "l": "forced current",
+     "tone": ""
+    },
+    {
+     "v": "+2s",
+     "l": "flagged by sensor fusion",
+     "tone": "ok"
+    }
+   ]
+  },
+  {
+   "id": "synthesis",
+   "title": "False-data synthesis",
+   "mitre": "T0856 Spoof Reporting (model-aware)",
+   "kind": "session",
+   "description": "A fabricated temperature curve that rises exactly as Joule heating predicts, just 15 °C below reality — built to pass rate checks, so the absolute physics model has to catch it. Real peak 54.2 °C; with the proxy on, 43.2 °C.",
+   "peak_real_temp": 54.2,
+   "defended_peak_temp": 43.2,
+   "commanded_a": 230.0,
+   "caught_by": "physics monitor",
+   "caught_at_s": 0,
+   "physics_monitor_at_s": 0,
+   "metrics": [
+    {
+     "v": "54.2°C",
+     "l": "real pack temp",
+     "tone": "hot"
+    },
+    {
+     "v": "230A",
+     "l": "forced current",
+     "tone": ""
+    },
+    {
+     "v": "at onset",
+     "l": "flagged by physics monitor",
+     "tone": "ok"
+    }
+   ]
+  },
+  {
+   "id": "mass_command",
+   "title": "Mass max-power broadcast",
+   "mitre": "T0831 Manipulation of Control",
+   "kind": "hub",
+   "description": "One forged command drives all 12 chargers in the hub to full power at once, overloading the shared transformer to 174% and sagging the bus 8.7%. The Zero-Trust proxy refuses it and holds the load to 104%.",
+   "loading_pct": 173.9,
+   "vdrop_pct": 8.7,
+   "defended_loading_pct": 104.3,
+   "caught_by": "Zero-Trust proxy",
+   "caught_at_s": null,
+   "metrics": [
+    {
+     "v": "174%",
+     "l": "transformer loading",
+     "tone": "hot"
+    },
+    {
+     "v": "8.7%",
+     "l": "bus voltage drop",
+     "tone": "warn"
+    },
+    {
+     "v": "104%",
+     "l": "with the proxy on",
+     "tone": "ok"
+    }
+   ]
+  }
+ ]
+}
