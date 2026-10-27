@@ -2,7 +2,7 @@ import Navbar from "@/components/Navbar";
 import AttackConsole from "@/components/AttackConsole";
 
 // The five EV attacks, one at a time, on the live cyber→control→physics graph.
-// (/simulator is the full multi-domain TVA simulator.)
+// (/simulator is the TVA simulator, EV charging hub only.)
 export default function Console() {
   return (
     <main className="sim-shell">

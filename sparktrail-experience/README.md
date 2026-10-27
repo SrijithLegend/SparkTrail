@@ -2,7 +2,7 @@
 
 TVA-themed scrollytelling site for SparkTrail. One EV domain, **five attacks**, a part-by-part EV
 charger internals reveal that shows **where SparkTrail sits**, a live Three.js propagation graph,
-an attack console, and the full multi-domain simulator — real tools, not videos.
+an attack console, and the EV charging simulator — real tools, not videos.
 
 ## Run
 
@@ -18,7 +18,7 @@ npm run dev        # http://localhost:3000
 |---|---|
 | `/` | **Act 1** (scroll): EV charger internals revealed part by part — connector, power module, contactor, controller, comms — then the SparkTrail monitor on the control link, then the microgrid. **Act 2** (scroll): the live cyber→control→physics graph with a **5-attack selector** (reveal → attack → defense), then the Temporal Variance Report. |
 | `/console` | **Attack console** — pick one of the 5 attacks, watch it propagate hop by hop, replay, read the event log and metrics. |
-| `/simulator` | The full TVA multi-domain simulator from the repo's `viz3d/multidomain.html`: 6 domains, MITRE-tagged manipulations, play/scrub/speed, defended toggle, damage report, prior occurrences. `npm run dev`/`build` copy it into `public/viz3d` first (`scripts/sync-viz3d.mjs`); edit it in `viz3d/`, not here. |
+| `/simulator` | The TVA simulator from the repo's `viz3d/multidomain.html`, opened with `?only=ev_hub` so it shows the **EV charging hub only**: MITRE-tagged manipulations, play/scrub/speed, defended toggle, damage report, prior occurrences. `npm run dev`/`build` copy it into `public/viz3d` first (`scripts/sync-viz3d.mjs`); edit it in `viz3d/`, not here. |
 | `/specs` | The physics numbers, the two defenses, honest limits. |
 
 ## The 5 attacks

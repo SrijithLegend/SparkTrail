@@ -1,7 +1,7 @@
 import Navbar from "@/components/Navbar";
 
-// The full TVA multi-domain simulator (repo viz3d/, synced into public/viz3d at build):
-// six domains, MITRE-tagged manipulations, playback, defended toggle, damage report.
+// The TVA simulator (repo viz3d/, synced into public/viz3d at build), limited to the EV
+// charging hub: MITRE-tagged manipulations, playback, defended toggle, damage report.
 export default function Simulator() {
   return (
     <main className="sim-shell">
@@ -11,7 +11,7 @@ export default function Simulator() {
         <span className="live">Temporal loom online</span>
       </div>
       <div className="sim-monitor crt">
-        <iframe src="/viz3d/multidomain.html" title="SparkTrail multi-domain simulator" />
+        <iframe src="/viz3d/multidomain.html?only=ev_hub" title="SparkTrail EV charging simulator" />
       </div>
     </main>
   );

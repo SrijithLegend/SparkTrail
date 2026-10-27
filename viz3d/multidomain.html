@@ -255,7 +255,7 @@ body:has(#temporal-screen) canvas{clip-path:inset(90px 315px 76px 295px round 18
 <div id="temporal-screen" aria-hidden="true"></div>
 
 <div class="hud" id="topbar">
-  <span class="wm">TIME VARIANCE AUTHORITY</span><span style="color:var(--amber)">· MULTI-DOMAIN</span>
+  <span class="wm">TIME VARIANCE AUTHORITY</span><span id="mode" style="color:var(--amber)">· MULTI-DOMAIN</span>
   <span class="sp"></span><span class="cf" id="casefile">CASE FILE TVA-000</span><span class="clk" id="clk">00:00</span>
 </div>
 <div class="hud" id="lamps">
@@ -333,6 +333,15 @@ let playing=false,tIdx=0; const SPEEDS=[0.5,1,2,4]; let spdI=1;
 async function boot(){
   try{ INDEX=await (await fetch('./scenes/index.json')).json(); }
   catch(e){ $('#banner').hidden=false; $('#banner').textContent='Could not load scenes/index.json — run `python -m sparktrail.domains` and serve viz3d/.'; return; }
+  // ?only=<domain id> keeps a single domain (the experience site embeds ?only=ev_hub)
+  const only = new URLSearchParams(location.search).get('only');
+  const keep = only && INDEX.domains.find(d => d.id === only);
+  if (keep) {
+    INDEX.domains = [keep];
+    const name = keep.title.toUpperCase();
+    $('#mode').textContent = '· ' + name; $('#ambient').textContent = 'SPARKTRAIL · ' + name;
+    document.title = 'SparkTrail · ' + keep.title;
+  }
   buildDomainList(); buildGallery(); initGL(); wireNav(); animate();
   loadDomain(INDEX.domains[0].id);
 }

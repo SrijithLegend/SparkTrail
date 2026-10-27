@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Every figure comes from the repo's engine (scenarios/*.yaml via sparktrail.core.scenario)
-// or the multi-domain sweep; keep them in sync with /specs and the simulator.
+// or gen_attacks.py; keep them in sync with /specs, the console and the simulator.
 type Stat = {
   value: number; decimals?: number; text?: string; unit?: string; label: string; note: string;
   stamp: string; tone?: "hot" | "safe"; size?: "wide" | "tall"; fill?: number;
@@ -19,12 +19,12 @@ const STATS: Stat[] = [
     stamp: "Pruned" },
   { value: 2, unit: "s", label: "Spoof flagged", tone: "safe",
     note: "Sensor fusion closes the energy balance two seconds after the attack starts.", stamp: "Caught" },
-  { value: 15, text: "15/15", label: "Variants pruned", tone: "safe", size: "wide", fill: 100,
-    note: "Every manipulation across all 6 domains breaches undefended and is contained with the defense on.",
+  { value: 5, text: "5/5", label: "EV attacks caught or blocked", tone: "safe", size: "wide", fill: 100,
+    note: "All five EV attacks breach undefended. Physics checks flag every pack attack within 2 s; the proxy keeps the pack at 43.2 °C and holds the transformer to 104%.",
     stamp: "Pruned" },
   { value: 0, text: "6 × 5", label: "Targets", note: "Six charger types, five microgrid topologies.", stamp: "Classified" },
-  { value: 7, label: "Attack mechanisms", size: "wide", // wide: completes the 4-column bento's last row
-    note: "Override, spoof, drift, mass command, DoS, replay, desync — across six entry points.", stamp: "Classified" },
+  { value: 9, label: "Attack mechanisms", size: "wide", // wide: completes the 4-column bento's last row
+    note: "Override, spoof, drift, mass command, DoS, replay, desync, sensor drift, false-data synthesis — across six entry points.", stamp: "Classified" },
 ];
 
 function Counter({ s, run }: { s: Stat; run: boolean }) {
