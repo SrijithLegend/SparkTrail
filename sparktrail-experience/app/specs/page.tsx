@@ -18,17 +18,17 @@ export default function Specs() {
         <table className="specs">
           <thead><tr><th>Quantity</th><th>Normal</th><th>Under attack</th></tr></thead>
           <tbody>
-            <tr><td>Pack temperature (peak)</td><td className="n">38.5 °C</td><td className="n"><span className="pill hot">55.4 °C</span></td></tr>
+            <tr><td>Pack temperature (peak)</td><td className="n">40.1 °C</td><td className="n"><span className="pill hot">57.7 °C</span></td></tr>
             <tr><td>Reported temperature</td><td className="n">real</td><td className="n">pinned 30 °C (spoofed)</td></tr>
             <tr><td>Charge current</td><td className="n">125 A</td><td className="n">forced 250 A</td></tr>
-            <tr><td>Spoof flagged (sensor fusion)</td><td className="n">—</td><td className="n"><span className="pill ok">~1 s</span></td></tr>
-            <tr><td>Residual alarm (physics monitor)</td><td className="n">—</td><td className="n">~239 s</td></tr>
+            <tr><td>Spoof flagged (sensor fusion)</td><td className="n">—</td><td className="n"><span className="pill ok">2 s after attack</span></td></tr>
+            <tr><td>Residual alarm (physics monitor)</td><td className="n">—</td><td className="n">at attack onset</td></tr>
           </tbody>
         </table>
 
         <h2>The two defenses</h2>
         <p><b>Zero-Trust Physics Proxy</b> — refuses a command that violates a hard physical limit, even when it
-          is perfectly authenticated. With the proxy on, the 250 A command is blocked and the pack stays at 38.5 °C.</p>
+          is perfectly authenticated. With the proxy on, the 250 A command is blocked and the pack peaks at 43.2 °C instead of 57.7 °C.</p>
         <p><b>Sensor-Fusion Validator</b> — cross-checks the electrical load against the thermal response via Joule
           heating. If current is high but the reported temperature barely moves, the sensor is being spoofed.</p>
 

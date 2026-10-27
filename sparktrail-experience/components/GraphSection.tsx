@@ -42,11 +42,11 @@ export default function GraphSection() {
           <div className="kicker alert">Propagation</div>
           <h2 className="title alert">Watch it spread.</h2>
           <div className="metrics">
-            <div className="metric"><div className="v hot">55.4°C</div><div className="l">real pack temp</div></div>
+            <div className="metric"><div className="v hot">57.7°C</div><div className="l">real pack temp</div></div>
             <div className="metric"><div className="v warn">30°C</div><div className="l">what the sensor reported</div></div>
             <div className="metric"><div className="v">250A</div><div className="l">forced charge limit</div></div>
           </div>
-          <p className="sub">The sensor is pinned to a safe-looking 30 °C while the pack really climbs to 55.4 °C.
+          <p className="sub">The sensor is pinned to a safe-looking 30 °C while the pack really climbs to 57.7 °C.
             Nothing on the dashboard says so — but the physics does.</p>
         </div>
 
@@ -54,7 +54,7 @@ export default function GraphSection() {
           <div className="kicker">Defense</div>
           <h2 className="title">Catch it in the physics,<br />not the paperwork.</h2>
           <p className="sub strong">A cross-layer check compares the electrical load against the thermal response
-            and flags the spoof in about one second — before the paperwork ever looks wrong.</p>
+            and flags the spoof two seconds after the attack starts — before the paperwork ever looks wrong.</p>
           <div className="cta-row">
             <Link href="/simulator" className="btn">Launch Simulator</Link>
             <Link href="/specs" className="btn ghost">Read the architecture</Link>
