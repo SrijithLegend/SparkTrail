@@ -1,0 +1,158 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
+
+type Node = { id: string; label: string; pos: [number, number, number] };
+type Scenes = { nodes: Node[]; links: [string, string][] };
+type Trace = { node_depths: Record<string, number>; events: any[]; meta?: any };
+
+const RED = 0xff3b3b, AMBER = 0xf0a836, YELLOW = 0xffe14d, IDLE = 0x33414f, CYAN = 0x00d6ff;
+const DEFENDERS = new Set(["FUSION", "MONITOR", "PROXY"]);
+
+function depthColor(d: number) {
+  if (d === 0) return RED;
+  if (d === 1) return AMBER;
+  return YELLOW;
+}
+
+export default function SparkTrailGraph({ progress }: { progress?: number }) {
+  const mount = useRef<HTMLDivElement>(null);
+  const progRef = useRef(progress ?? 0);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => { progRef.current = progress ?? 0; }, [progress]);
+
+  useEffect(() => {
+    const el = mount.current;
+    if (!el) return;
+    let raf = 0, disposed = false;
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    } catch (e) {
+      setReady(true);
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050505);
+    const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+    cam.position.set(0, 1, 18);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+    const key = new THREE.PointLight(0x9fd8ff, 120, 0); key.position.set(4, 8, 10); scene.add(key);
+
+    const sizeTo = () => {
+      const w = el.clientWidth, h = el.clientHeight || 1;
+      renderer.setSize(w, h); cam.aspect = w / h;
+      // back the camera off on narrow screens so the whole graph (x ≈ ±10.5) fits
+      cam.position.z = Math.max(18, 10.5 / (Math.tan((cam.fov / 2) * Math.PI / 180) * cam.aspect));
+      cam.updateProjectionMatrix();
+    };
+    el.appendChild(renderer.domElement);
+    sizeTo();
+    window.addEventListener("resize", sizeTo);
+
+    const nodeMeshes: Record<string, THREE.Mesh> = {};
+    let depths: Record<string, number> = {};
+    let maxDepth = 1;
+    let posOf: Record<string, THREE.Vector3> = {};
+
+    function label(text: string, p: [number, number, number], col: number) {
+      const c = document.createElement("canvas"); c.width = 512; c.height = 64;
+      const x = c.getContext("2d")!;
+      x.fillStyle = "#f0e4ca"; x.font = "28px Inter, monospace"; x.fillText(text, 8, 40);
+      const tex = new THREE.CanvasTexture(c);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+      sp.position.set(p[0], p[1] + 0.95, p[2]); sp.scale.set(4, 0.5, 1); scene.add(sp);
+    }
+
+    Promise.all([
+      fetch("/scenes.json").then((r) => r.json()),
+      fetch("/trace/trace.json").then((r) => r.json()),
+    ]).then(([sc, tr]: [Scenes, Trace]) => {
+      if (disposed) return;
+      depths = tr.node_depths || {};
+      maxDepth = Math.max(1, ...Object.values(depths));
+      sc.nodes.forEach((n) => (posOf[n.id] = new THREE.Vector3(...n.pos)));
+
+      // links
+      const linkMat = new THREE.LineBasicMaterial({ color: 0x24303c });
+      sc.links.forEach(([a, b]) => {
+        const pa = posOf[a], pb = posOf[b]; if (!pa || !pb) return;
+        const g = new THREE.BufferGeometry().setFromPoints([pa, pb]);
+        scene.add(new THREE.Line(g, linkMat));
+      });
+      // nodes
+      sc.nodes.forEach((n) => {
+        const inGraph = n.id in depths;
+        const geo = new THREE.SphereGeometry(inGraph ? 0.6 : 0.46, 32, 32);
+        const mat = new THREE.MeshStandardMaterial({
+          color: IDLE, emissive: IDLE, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.35,
+        });
+        const m = new THREE.Mesh(geo, mat); m.position.copy(posOf[n.id]);
+        scene.add(m); nodeMeshes[n.id] = m;
+        label(n.label + (inGraph ? `  ·d${depths[n.id]}` : ""), n.pos, IDLE);
+      });
+
+      setReady(true);
+    });
+
+    const tmp = new THREE.Color();
+    function animate() {
+      raf = requestAnimationFrame(animate);
+      const now = performance.now();
+      const p = progRef.current;
+
+      // activation by depth
+      let activeDepth: number;
+      let cooling = 0;
+      if (p < 0.33) activeDepth = -1;                 // reveal: all idle
+      else if (p < 0.85) activeDepth = Math.floor(((p - 0.33) / 0.52) * (maxDepth + 1));
+      else { activeDepth = maxDepth; cooling = (p - 0.85) / 0.15; } // defense cools
+
+      Object.entries(nodeMeshes).forEach(([id, m]) => {
+        const mat = m.material as THREE.MeshStandardMaterial;
+        const d = depths[id];
+        const defender = DEFENDERS.has(id);
+        if (d === undefined || d > activeDepth) {
+          mat.color.setHex(IDLE); mat.emissive.setHex(IDLE); mat.emissiveIntensity = 0.38;
+        } else {
+          let col = defender ? CYAN : depthColor(d);
+          if (cooling > 0 && !defender) {
+            tmp.setHex(depthColor(d)).lerp(new THREE.Color(CYAN), cooling);
+            col = tmp.getHex();
+          }
+          mat.color.setHex(col); mat.emissive.setHex(col);
+          const pulse = 0.65 + 0.35 * Math.sin(now / 320 + d);
+          mat.emissiveIntensity = (defender ? 0.9 : 0.8) * pulse;
+          const s = 1 + 0.06 * Math.sin(now / 300 + d);
+          m.scale.setScalar(s);
+        }
+      });
+
+      scene.rotation.y = Math.sin(now / 6000) * 0.12;
+      renderer.render(scene, cam);
+    }
+    animate();
+
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", sizeTo);
+      renderer.dispose();
+      if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return (
+    <div className="graph-mount" ref={mount}>
+      {!ready && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center",
+          justifyContent: "center", color: "rgba(255,255,255,.3)", fontSize: 13, letterSpacing: ".2em" }}>
+          LOADING TRACE…
+        </div>
+      )}
+    </div>
+  );
+}

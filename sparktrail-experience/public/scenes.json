@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    { "id": "ATTACKER",    "label": "Attacker",        "pos": [-9, 0, 0] },
+    { "id": "CSMS",        "label": "Backend / CSMS",  "pos": [-4.5, 1.5, 0] },
+    { "id": "HUB",         "label": "Hub controller",  "pos": [-4.5, -1.5, 0] },
+    { "id": "CP_1",        "label": "Charger CP-1",    "pos": [0, 1.5, 0] },
+    { "id": "BMS",         "label": "BMS",             "pos": [3, 2.6, 0] },
+    { "id": "PACK",        "label": "Battery pack",    "pos": [6, 1.5, 0] },
+    { "id": "TRANSFORMER", "label": "Hub transformer", "pos": [0, -1.5, 0] },
+    { "id": "CP_7",        "label": "Charger CP-7",    "pos": [4.5, -2.4, 0] },
+    { "id": "MONITOR",     "label": "Physics monitor", "pos": [9, 2.2, 0] },
+    { "id": "FUSION",      "label": "Fusion monitor",  "pos": [9, 0.4, 0] }
+  ],
+  "links": [
+    ["ATTACKER", "CSMS"], ["ATTACKER", "HUB"],
+    ["CSMS", "CP_1"], ["CP_1", "BMS"], ["BMS", "PACK"],
+    ["PACK", "MONITOR"], ["PACK", "FUSION"],
+    ["HUB", "TRANSFORMER"], ["TRANSFORMER", "CP_7"]
+  ]
+}

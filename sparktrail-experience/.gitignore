@@ -1,0 +1,5 @@
+node_modules
+.next
+.DS_Store
+*.log
+public/viz3d
