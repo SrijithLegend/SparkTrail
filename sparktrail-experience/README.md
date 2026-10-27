@@ -1,55 +1,59 @@
 # SparkTrail — Experience Site
 
-Apple-style scrollytelling landing page for SparkTrail, built with the same technique as the
-tutorial (sticky canvas image-sequence) — but **Act 2 is a live Three.js graph**, not a video, so
-the "Launch Simulator" button opens the real propagation tool.
+TVA-themed scrollytelling site for SparkTrail. One EV domain, **five attacks**, a part-by-part EV
+charger internals reveal that shows **where SparkTrail sits**, a live Three.js propagation graph,
+an attack console, and the full multi-domain simulator — real tools, not videos.
 
 ## Run
 
 ```bash
 npm install
 npm run dev        # http://localhost:3000
-# or production:
-npm run build && npm start
+# production: npm run build && npm start
 ```
 
-## What's here
+## Routes
 
 | Route | What it is |
 |---|---|
-| `/` | The experience. **Act 1** (scroll) — EV charger + microgrid explode into components (image sequence). **Act 2** (scroll) — the live SparkTrail cyber→control→physics graph: reveal → attack propagation → defense. |
+| `/` | **Act 1** (scroll): EV charger internals revealed part by part — connector, power module, contactor, controller, comms — then the SparkTrail monitor on the control link, then the microgrid. **Act 2** (scroll): the live cyber→control→physics graph with a **5-attack selector** (reveal → attack → defense), then the Temporal Variance Report. |
+| `/console` | **Attack console** — pick one of the 5 attacks, watch it propagate hop by hop, replay, read the event log and metrics. |
 | `/simulator` | The full TVA multi-domain simulator from the repo's `viz3d/multidomain.html`: 6 domains, MITRE-tagged manipulations, play/scrub/speed, defended toggle, damage report, prior occurrences. `npm run dev`/`build` copy it into `public/viz3d` first (`scripts/sync-viz3d.mjs`); edit it in `viz3d/`, not here. |
-| `/specs` | Plain editorial page — the physics numbers, the two defenses, honest limits. |
+| `/specs` | The physics numbers, the two defenses, honest limits. |
 
-## The two acts
+## The 5 attacks
 
-- **Act 1 — image sequence.** `components/ScrollSequence.tsx` plays frames from
-  `public/sequences/<name>/frame_NNN.jpg`, scroll-linked. The current frames are **procedural
-  placeholders** (`scripts/gen_frames.py`). **Swap in your Veo→Ezgif frames** by dropping them into
-  those folders (same naming) and updating `count` in `app/page.tsx`.
-- **Act 2 — live graph.** `components/SparkTrailGraph.tsx` is `viz3d` ported to React/Three. It reads
-  `public/trace/trace.json` (produced by the SparkTrail engine's `cli.py`) and `public/scenes.json`.
-  Nodes are coloured by hops from the root cause: **red** root · **amber** direct · **yellow**
-  cascade · **cyan** defender.
+Generated from the real engine by `gen_attacks.py` at the repo root — each run undefended and with
+the Zero-Trust proxy on. Traces live in `public/trace/attacks/`, with `index.json` driving the UI.
+Simulation only.
 
-## Updating the data
+| # | Attack | MITRE ATT&CK for ICS | Undefended | First flagged | Proxy on |
+|---|---|---|---|---|---|
+| 01 | Forced overcurrent + temperature spoof | T0836 + T0856 | pack 57.7 °C | at onset (physics monitor) | 43.2 °C |
+| 02 | Thermal-sensor drift | T0856 | pack 49.5 °C | +2 s (sensor fusion) | 43.2 °C |
+| 03 | Sensor replay / stale freeze | T0857 / T0856 | pack 52.6 °C | +2 s (sensor fusion) | 43.2 °C |
+| 04 | False-data synthesis | T0856 (model-aware) | pack 54.2 °C | at onset (physics monitor) | 43.2 °C |
+| 05 | Mass max-power broadcast | T0831 | transformer 174 %, bus −8.7 % | — | 104 % |
+
+Regenerate after changing the engine or the attack definitions:
 
 ```bash
-# in the SparkTrail python repo:
-python cli.py dcfast_overcurrent_tempspoof.yaml --out trace.json
-# copy trace.json -> this app's public/trace/trace.json
+# from the repo root
+python gen_attacks.py
 ```
 
-## Swapping in real Veo frames (Act 1)
+## Acts
 
-1. Whisk the components (see `ASSET_PROMPTS.md` in the main repo).
-2. Veo the explosion; split with Ezgif (`ezgif.com/video-to-jpg`, ~5–8 FPS).
-3. Drop frames into `public/sequences/charger-explode/` and `.../microgrid-explode/`
-   as `frame_000.jpg …`, update the `count` values in `app/page.tsx`.
+- **Act 1 — image sequence.** `components/ScrollSequence.tsx` plays frames from
+  `public/sequences/charger-internals/` (72) and `.../microgrid-explode/` (48). These are
+  **procedural placeholders** (`scripts/gen_frames.py`, rendered on the site's `#0A0A0F`). Swap in
+  Veo→Ezgif frames with the same `frame_NNN.jpg` naming and update `count` in `app/page.tsx`.
+- **Act 2 — live graph.** `components/SparkTrailGraph.tsx` reads a per-attack trace and
+  `public/scenes.json`. Red = root · orange = direct · amber = cascade · cyan = defender · green =
+  pruned (defense succeeded).
 
 ## Notes
 
-- The Google Fonts `@import` in `globals.css` needs network at load; swap for `next/font` if you
-  want it bundled.
-- Three.js is a normal npm dependency — no CDN, works offline.
-- Honest limit (say it to judges): Act 1 is cinema; **Act 2 is the real tool**. Keep them consistent.
+- Fonts (Outfit, Share Tech Mono) are self-hosted at build time via `next/font`.
+- Three.js is a normal npm dep — no CDN, works offline.
+- Honest limit for judges: Act 1 is cinema; **Act 2, the console and the simulator are the real tool**.

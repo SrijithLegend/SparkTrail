@@ -48,12 +48,20 @@ function haloTexture() {
   return new THREE.CanvasTexture(c);
 }
 
-export default function SparkTrailGraph({ progress }: { progress?: number }) {
+const STEP_MS = 500; // interactive playback: one hop every half second
+
+/** Scroll-driven (progress) on the home page; time-driven playback when interactive (the
+ *  console), restarted whenever playKey changes. src = which attack trace to show. */
+export default function SparkTrailGraph({
+  progress, src = "/trace/trace.json", interactive = false, playKey = 0,
+}: { progress?: number; src?: string; interactive?: boolean; playKey?: number }) {
   const mount = useRef<HTMLDivElement>(null);
   const progRef = useRef(progress ?? 0);
+  const t0 = useRef(0);
   const [ready, setReady] = useState(false);
 
   useEffect(() => { progRef.current = progress ?? 0; }, [progress]);
+  useEffect(() => { t0.current = performance.now(); }, [playKey, src]);
 
   useEffect(() => {
     const el = mount.current;
@@ -101,6 +109,10 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
     let depths: Record<string, number> = {};
     let maxDepth = 1;
     let posOf: Record<string, THREE.Vector3> = {};
+    const hops: { a: THREE.Vector3; b: THREE.Vector3; d: number }[] = []; // links that carry the attack d -> d+1
+    const beadPool: THREE.Mesh[] = [];
+    const beadGeo = new THREE.SphereGeometry(0.16, 16, 16);
+    const beadMat = new THREE.MeshBasicMaterial({ color: 0xffb36b });
     const fontFamily = mono.style.fontFamily;
 
     function label(text: string, p: [number, number, number]) {
@@ -114,7 +126,7 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
 
     Promise.all([
       fetch("/scenes.json").then((r) => r.json()),
-      fetch("/trace/trace.json").then((r) => r.json()),
+      fetch(src).then((r) => r.json()),
       document.fonts.load(`28px ${fontFamily}`).catch(() => null), // labels are drawn once; wait for the font
     ]).then(([sc, tr]: [Scenes, Trace, unknown]) => {
       if (disposed) return;
@@ -128,6 +140,8 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
         const pa = posOf[a], pb = posOf[b]; if (!pa || !pb) return;
         const g = new THREE.BufferGeometry().setFromPoints([pa, pb]);
         scene.add(new THREE.Line(g, linkMat));
+        const da = depths[a], db = depths[b];
+        if (da !== undefined && db === da + 1) hops.push({ a: pa, b: pb, d: da });
       });
       // nodes + additive glow halos (cheap bloom)
       sc.nodes.forEach((n) => {
@@ -157,7 +171,9 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
       // activation by depth
       let activeDepth: number;
       let cooling = 0;
-      if (p < 0.33) activeDepth = -1;                 // reveal: all idle
+      const el = (now - t0.current) / STEP_MS;      // interactive: hops elapsed since (re)play
+      if (interactive) activeDepth = Math.floor(el);
+      else if (p < 0.33) activeDepth = -1;          // reveal: all idle
       else if (p < 0.85) activeDepth = Math.floor(((p - 0.33) / 0.52) * (maxDepth + 1));
       else { activeDepth = maxDepth; cooling = (p - 0.85) / 0.15; } // defense prunes: heat cools to green
 
@@ -184,6 +200,18 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
         }
       });
 
+      // interactive: a bead runs along each hop as it fires
+      beadPool.forEach((b) => (b.visible = false));
+      if (interactive) {
+        let bi = 0;
+        for (const h of hops) {
+          const u = el - h.d; if (u < 0 || u > 1) continue;
+          let bead = beadPool[bi++];
+          if (!bead) { bead = new THREE.Mesh(beadGeo, beadMat); scene.add(bead); beadPool.push(bead); }
+          bead.visible = true; bead.position.lerpVectors(h.a, h.b, u);
+        }
+      }
+
       scene.rotation.y = Math.sin(now / 6000) * 0.12;
       composer.render();
     }
@@ -197,7 +225,7 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
       renderer.dispose();
       if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [src, interactive]);
 
   return (
     <div className="graph-mount" ref={mount}>

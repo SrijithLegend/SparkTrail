@@ -54,8 +54,10 @@ battery-buffered (buffer SoC), bidirectional / V2G (export).
 LV distribution (with PV), islanded (frequency via swing), microgrid with BESS,
 campus/fleet depot.
 
-**All 7 attack mechanisms** (`attacks/`): `command_override`, `sensor_spoof`,
-`setpoint_drift`, `mass_command`, `dos_blackhole`, `replay`, `desync`.
+**9 attack mechanisms** (`attacks/`): `command_override`, `sensor_spoof`,
+`setpoint_drift`, `mass_command`, `dos_blackhole`, `replay` (commands and readings), `desync`,
+`sensor_drift`, `sensor_offset` (false-data synthesis). `python gen_attacks.py` runs the experience
+site's five EV attacks through the engine and writes its traces.
 
 **All 6 entry points**: `backend_link`, `vehicle_link`, `sensor_bus`,
 `hub_controller`, `inverter_link`, `firmware_state`.

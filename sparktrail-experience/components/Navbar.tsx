@@ -11,6 +11,7 @@ const TIMELINE = [
   { href: "/#report", id: "report", label: "Report" },
 ];
 const VARIANTS = [
+  { href: "/console", id: "/console", label: "Console" },
   { href: "/simulator", id: "/simulator", label: "Simulator" },
   { href: "/specs", id: "/specs", label: "Specs" },
   { href: "https://github.com/SrijithLegend/SparkTrail", id: "github", label: "GitHub" },

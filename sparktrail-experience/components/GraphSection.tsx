@@ -1,12 +1,16 @@
 "use client";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import SparkTrailGraph from "./SparkTrailGraph";
 import { useProgress, windowed } from "./useProgress";
+import { useAttacks, traceUrl, defenseLine } from "./useAttacks";
 
 export default function GraphSection() {
   const wrap = useRef<HTMLDivElement>(null);
   const p = useProgress(wrap);
+  const attacks = useAttacks();
+  const [sel, setSel] = useState(0);
+  const a = attacks[sel];
 
   const reveal = windowed(p, 0.0, 0.06, 0.30, 0.38);
   const attack = windowed(p, 0.40, 0.48, 0.70, 0.78);
@@ -25,44 +29,56 @@ export default function GraphSection() {
   };
 
   return (
-    <div className="pin-wrap" ref={wrap} style={{ height: "480vh" }}>
-      {/* nav targets at the attack and defense beats: p = at·480/380 */}
-      <span id="attack" className="anchor" style={{ top: "43.5%" }} />
-      <span id="defense" className="anchor" style={{ top: "75.2%" }} />
+    <div className="pin-wrap" ref={wrap} style={{ height: "520vh" }}>
+      {/* nav targets at the attack and defense beats: p = at·520/420 */}
+      <span id="attack" className="anchor" style={{ top: "44.4%" }} />
+      <span id="defense" className="anchor" style={{ top: "76.7%" }} />
       <div className="graph-pin crt">
         <div className="graph-mount" style={graphStyle}>
-          <SparkTrailGraph progress={p} />
+          <SparkTrailGraph progress={p} src={traceUrl(a)} />
         </div>
 
         <div className="beat right" style={{ opacity: reveal, transform: `translateY(${(1 - reveal) * 24}px)` }}>
           <span className="tva-stamp">TVA case file 101</span>
           <div className="kicker">Variant detected</div>
-          <h2 className="title">The same hardware. Now the attack surface.</h2>
+          <h2 className="title split">The hardware,<br />now the attack surface.</h2>
           <p className="sub strong">SparkTrail traces one forged command from the backend, through the charger
             and the battery controller, to the heat in the cells — every hop on one causal graph.</p>
         </div>
 
-        <div className="beat left" style={{ opacity: attack, transform: `translateY(${(1 - attack) * 24}px)` }}>
+        <div className="beat left" style={{ opacity: attack, transform: `translateY(${(1 - attack) * 24}px)`,
+             pointerEvents: attack > 0.5 ? "auto" : "none" }}>
           <span className="tva-stamp red">Temporal breach</span>
-          <div className="kicker alert">Variant propagation</div>
-          <h2 className="title alert">Watch it spread.</h2>
-          <div className="metrics">
-            <div className="metric"><div className="v hot">57.7°C</div><div className="l">real pack temp</div></div>
-            <div className="metric"><div className="v warn">30°C</div><div className="l">what the sensor reported</div></div>
-            <div className="metric"><div className="v">250A</div><div className="l">forced charge limit</div></div>
+          <div className="kicker alert">Variant propagation{a ? ` · ${a.mitre}` : ""}</div>
+          <h2 className="title alert split atk-title">{a ? a.title : "Watch it spread."}</h2>
+          {a && (
+            <div className="metrics">
+              {a.metrics.map((m, i) => (
+                <div className="metric" key={i}><div className={`v ${m.tone || ""}`}>{m.v}</div><div className="l">{m.l}</div></div>
+              ))}
+            </div>
+          )}
+          {a && <p className="sub atk-desc">{a.description}</p>}
+          <div className="atk-chips" role="group" aria-label="Choose an attack">
+            {attacks.map((atk, i) => (
+              <button key={atk.id} className={`atk-chip ${i === sel ? "on" : ""}`} aria-pressed={i === sel}
+                      onClick={() => setSel(i)} data-cursor="SELECT">
+                {String(i + 1).padStart(2, "0")} · {atk.title.split(/ [+/] /)[0]}
+              </button>
+            ))}
           </div>
-          <p className="sub">The sensor is pinned to a safe-looking 30 °C while the pack really climbs to 57.7 °C.
-            Nothing on the dashboard says so — but the physics does.</p>
         </div>
 
-        <div className="beat center" style={{ opacity: defense, transform: `translateY(${(1 - defense) * 24}px)` }}>
+        <div className="beat center" style={{ opacity: defense, transform: `translateY(${(1 - defense) * 24}px)`,
+             pointerEvents: defense > 0.5 ? "auto" : "none" }}>
           <span className="tva-stamp green">Timeline pruned</span>
           <div className="kicker safe">Temporal defense</div>
-          <h2 className="title safe">Catch it in the physics,<br />not the paperwork.</h2>
-          <p className="sub strong">A cross-layer check compares the electrical load against the thermal response
-            and flags the spoof two seconds after the attack starts — before the paperwork ever looks wrong.</p>
+          <h2 className="title safe split">Catch it in the physics,<br />not the paperwork.</h2>
+          <p className="sub strong">An independent physics check compares the electrical load against the thermal
+            response and {defenseLine(a)} — before the dashboard ever looks wrong.</p>
           <div className="cta-row">
-            <Link href="/simulator" className="btn" data-magnetic data-cursor="LAUNCH">Launch Simulator</Link>
+            <Link href="/console" className="btn" data-magnetic data-cursor="LAUNCH">Open the attack console</Link>
+            <Link href="/simulator" className="btn ghost" data-magnetic data-cursor="LAUNCH">Launch Simulator</Link>
             <Link href="/specs" className="btn ghost" data-magnetic data-cursor="ANALYZE">Read the architecture</Link>
           </div>
         </div>

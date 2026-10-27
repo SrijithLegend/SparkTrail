@@ -315,3 +315,76 @@ html.tc-on, html.tc-on a, html.tc-on button{ cursor:none; }
   .bento .card{ opacity:1; transform:none; }
   .bento .card .bar i{ width:var(--fill); }
 }
+
+/* ================= v2: charger-internals beats, ticker, intro, attack selector + console ================= */
+.beat.vbottom{ justify-content:flex-end; padding-bottom:96px; }
+.beat.vbottom h2.title{ font-size:clamp(28px,4.4vw,56px); }
+.beat.vbottom .sub{ max-width:40ch; }
+.split{ text-transform:uppercase; line-height:.92; letter-spacing:-.02em; }
+
+.ticker{ position:absolute; bottom:56px; left:0; right:0; overflow:hidden; pointer-events:none; z-index:4;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent); }
+.ticker-track{ display:inline-flex; gap:44px; white-space:nowrap; animation:marquee-scroll 26s linear infinite;
+  font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--text3); }
+.ticker-track b{ color:var(--orange); font-weight:400; }
+
+.intro{ position:fixed; inset:0; z-index:400; background:var(--bg); display:flex; align-items:center;
+  justify-content:center; flex-direction:column; gap:18px; animation:intro-out .7s ease 1.9s forwards; }
+.intro .word{ font-size:clamp(38px,7vw,92px); font-weight:800; letter-spacing:-.03em; text-transform:uppercase;
+  background:linear-gradient(180deg,#fff 50%,var(--orange)); -webkit-background-clip:text; background-clip:text; color:transparent;
+  opacity:0; animation:intro-in .6s ease .15s forwards; }
+.intro .bar{ width:0; height:2px; background:linear-gradient(90deg,var(--orange),var(--amber));
+  box-shadow:0 0 14px var(--orange); animation:intro-bar 1.5s ease .3s forwards; }
+.intro .tag{ font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:var(--text3); opacity:0; animation:intro-in .6s ease .6s forwards; }
+@keyframes intro-in{ from{ opacity:0; transform:translateY(14px);} to{ opacity:1; transform:none;} }
+@keyframes intro-bar{ from{ width:0;} to{ width:240px;} }
+@keyframes intro-out{ to{ opacity:0; visibility:hidden;} }
+
+.atk-chips{ display:flex; gap:10px; margin-top:26px; flex-wrap:wrap; pointer-events:auto; max-width:620px; }
+.beat.right .atk-chips{ justify-content:flex-end; }
+.atk-chip{ font-family:var(--mono); font-size:12px; letter-spacing:.06em; padding:8px 14px; border-radius:999px;
+  background:rgba(255,255,255,.03); border:1px solid rgba(255,107,0,.22); color:var(--text2); transition:all .2s; }
+.atk-chip:hover{ border-color:rgba(255,59,59,.55); color:var(--text); }
+.atk-chip.on{ border-color:var(--red); background:rgba(255,59,59,.12); color:#fff; box-shadow:0 0 16px rgba(255,59,59,.25); }
+.metric .v.ok{ color:var(--green); text-shadow:0 0 18px rgba(46,230,168,.35); }
+
+.console{ flex:1; display:flex; gap:10px; min-height:0; }
+.console-rail{ width:310px; flex:none; padding:14px; border-radius:16px; overflow:auto; }
+.rail-head{ font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--orange); margin:2px 4px 12px; }
+.rail-item{ display:flex; gap:12px; width:100%; text-align:left; padding:12px; margin-bottom:8px; border-radius:12px;
+  border:1px solid rgba(255,107,0,.14); color:var(--text2); transition:all .2s; }
+.rail-item:hover{ border-color:rgba(255,107,0,.45); color:var(--text); }
+.rail-item.on{ border-color:var(--orange); background:rgba(255,107,0,.1); color:#fff; box-shadow:inset 3px 0 0 var(--orange); }
+.ri-n{ font-size:13px; color:var(--orange); }
+.ri-body{ display:flex; flex-direction:column; gap:4px; }
+.ri-title{ font-size:15px; font-weight:600; line-height:1.2; }
+.ri-mitre{ font-size:10.5px; letter-spacing:.04em; color:var(--text3); }
+.console-main{ flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; }
+.console-graph{ flex:1; position:relative; min-height:280px; border-radius:16px; overflow:hidden;
+  border:1px solid rgba(255,107,0,.25); background:var(--bg); }
+.console-graph .replay{ position:absolute; top:14px; right:14px; z-index:5; }
+.evlog{ position:absolute; left:14px; bottom:14px; z-index:5; max-width:min(380px,calc(100% - 28px)); max-height:46%;
+  overflow:auto; padding:10px 12px; border-radius:10px; font-size:11.5px; line-height:1.7; white-space:pre; }
+.evlog .attack{ color:var(--red); } .evlog .cyber{ color:var(--amber); } .evlog .control{ color:var(--orange); }
+.evlog .physics{ color:#ff8a5c; } .evlog .monitor{ color:var(--green); }
+.console-panel{ padding:16px 22px 18px; border-radius:16px; }
+.console-panel .metrics{ margin-top:0; margin-bottom:10px; gap:40px; }
+.cp-desc{ color:var(--text2); font-size:14px; line-height:1.6; max-width:90ch; }
+@media(max-width:860px){
+  .console{ flex-direction:column; overflow:auto; }
+  .console-rail{ width:100%; max-height:none; display:flex; gap:8px; overflow-x:auto; padding:10px; }
+  .rail-head{ display:none; }
+  .rail-item{ flex:none; width:240px; margin:0; }
+  .console-graph{ min-height:52vh; }
+  .console-panel .metrics{ gap:22px; }
+  .evlog{ display:none; }
+}
+.beat h2.atk-title{ font-size:clamp(28px,3.6vw,52px); max-width:20ch; }
+@media(max-width:1099px){
+  .beat .atk-desc{ display:none; }           /* the metrics already carry it; keeps the graph visible */
+  .atk-chips{ flex-wrap:nowrap; overflow-x:auto; max-width:100%; padding-bottom:4px; }
+  .atk-chip{ flex:none; }
+}
+.nav .cta{ white-space:nowrap; }
+@media(max-width:1180px){ .nav .clearance{ display:none; } }  /* room for the extra Console link */

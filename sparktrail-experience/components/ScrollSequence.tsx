@@ -7,14 +7,16 @@ type Beat = {
   a: number; b: number; c: number; d: number;
   kicker?: string; title: string; titleTag?: "h1" | "h2"; sub?: string;
   stamp?: string; stampTone?: "red" | "green" | "cyan";
+  vpos?: "center" | "bottom";
 };
 /** Nav target placed at a fraction of the section's height (sticky content can't be a target). */
 type Anchor = { id: string; at: number };
 type Seq = { dir: string; count: number; pad?: number; ext?: string };
 
 export default function ScrollSequence({
-  sequences, heightVh, beats, heroGlow = false, anchors = [],
-}: { sequences: Seq[]; heightVh: number; beats: Beat[]; heroGlow?: boolean; anchors?: Anchor[] }) {
+  sequences, heightVh, beats, heroGlow = false, anchors = [], children,
+}: { sequences: Seq[]; heightVh: number; beats: Beat[]; heroGlow?: boolean; anchors?: Anchor[];
+     children?: React.ReactNode }) {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const imgs = useRef<HTMLImageElement[]>([]);
@@ -57,7 +59,8 @@ export default function ScrollSequence({
           else if (mobile) dy -= o;
           else dx += bt.align === "left" ? o : -o;
         }
-        const k = 1 - (mobile ? 0.4 : 0.2) * Math.min(1, Math.abs(dx) + Math.abs(dy));
+        // stacked layout: shrink less on portrait phones (room above the text) than on short landscape tablets
+        const k = 1 - (mobile ? (ch > cw ? 0.25 : 0.4) : 0.2) * Math.min(1, Math.abs(dx) + Math.abs(dy));
         w *= k; h *= k;
         ctx.globalAlpha = 1 - hide;
         ctx.drawImage(im, (cw - w) / 2 + dx * cw * 0.28, (ch - h) / 2 + dy * ch * 0.2, w, h);
@@ -111,7 +114,7 @@ export default function ScrollSequence({
           const o = windowed(prog, bt.a, bt.b, bt.c, bt.d);
           const Tag = bt.titleTag ?? "h2";
           return (
-            <div key={i} className={`beat ${bt.align}`}
+            <div key={i} className={`beat ${bt.align} ${bt.vpos === "bottom" ? "vbottom" : ""}`}
                  style={{ opacity: o, transform: `translateY(${(1 - o) * 26}px)` }}>
               {bt.stamp && <span className={`tva-stamp ${bt.stampTone ?? ""}`}>{bt.stamp}</span>}
               {bt.kicker && <div className="kicker">{bt.kicker}</div>}
@@ -120,6 +123,7 @@ export default function ScrollSequence({
             </div>
           );
         })}
+        {children}
       </div>
     </div>
   );
