@@ -18,7 +18,7 @@ npm run build && npm start
 | Route | What it is |
 |---|---|
 | `/` | The experience. **Act 1** (scroll) — EV charger + microgrid explode into components (image sequence). **Act 2** (scroll) — the live SparkTrail cyber→control→physics graph: reveal → attack propagation → defense. |
-| `/simulator` | The live graph, interactive: replay propagation + event log. |
+| `/simulator` | The full TVA multi-domain simulator from the repo's `viz3d/multidomain.html`: 6 domains, MITRE-tagged manipulations, play/scrub/speed, defended toggle, damage report, prior occurrences. `npm run dev`/`build` copy it into `public/viz3d` first (`scripts/sync-viz3d.mjs`); edit it in `viz3d/`, not here. |
 | `/specs` | Plain editorial page — the physics numbers, the two defenses, honest limits. |
 
 ## The two acts
