@@ -176,7 +176,7 @@ h2.title.safe{ background:linear-gradient(180deg,#fff 55%,var(--cyan)); -webkit-
 /* scroll hint */
 .scroll-hint{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:50;
   display:flex; align-items:center; gap:10px; font-family:var(--mono); font-size:11px; letter-spacing:.24em;
-  text-transform:uppercase; color:var(--text2); transition:opacity .5s; pointer-events:none; }
+  text-transform:uppercase; color:var(--text2); transition:opacity .5s; pointer-events:none; white-space:nowrap; }
 .scroll-hint .ring{ --s:16px; }
 .scroll-hint.gone{ opacity:0; }
 

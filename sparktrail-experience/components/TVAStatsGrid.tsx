@@ -23,7 +23,8 @@ const STATS: Stat[] = [
     note: "Every manipulation across all 6 domains breaches undefended and is contained with the defense on.",
     stamp: "Pruned" },
   { value: 0, text: "6 × 5", label: "Targets", note: "Six charger types, five microgrid topologies.", stamp: "Classified" },
-  { value: 7, label: "Attack mechanisms", note: "Override, spoof, drift, mass command, DoS, replay, desync.", stamp: "Classified" },
+  { value: 7, label: "Attack mechanisms", size: "wide", // wide: completes the 4-column bento's last row
+    note: "Override, spoof, drift, mass command, DoS, replay, desync — across six entry points.", stamp: "Classified" },
 ];
 
 function Counter({ s, run }: { s: Stat; run: boolean }) {

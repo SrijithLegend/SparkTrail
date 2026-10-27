@@ -34,9 +34,9 @@ const CRTShader = {
       vec2 uv = c * 0.5 + 0.5;
       if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { gl_FragColor = vec4(bg, 1.0); return; }
       vec3 col = texture2D(tDiffuse, uv).rgb;
-      col *= 0.92 + 0.08 * sin(uv.y * lines * 3.14159);
-      col *= mix(0.72, 1.0, smoothstep(1.4, 0.5, length(c)));
-      gl_FragColor = vec4(col, 1.0);
+      // shade only what differs from the background, so empty space stays exactly --bg
+      float k = (0.92 + 0.08 * sin(uv.y * lines * 3.14159)) * mix(0.72, 1.0, smoothstep(1.4, 0.5, length(c)));
+      gl_FragColor = vec4(bg + (col - bg) * k, 1.0);
     }`,
 };
 
@@ -168,7 +168,7 @@ export default function SparkTrailGraph({ progress }: { progress?: number }) {
         const defender = DEFENDERS.has(id);
         if (d === undefined || d > activeDepth) {
           mat.color.setHex(IDLE); mat.emissive.setHex(IDLE); mat.emissiveIntensity = 0.38;
-          hm.color.setHex(ORANGE); hm.opacity = 0.08;
+          hm.color.setHex(ORANGE); hm.opacity = 0.03;
         } else {
           let col = defender ? CYAN : depthColor(d);
           if (cooling > 0 && !defender) {
