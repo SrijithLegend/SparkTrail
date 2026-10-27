@@ -27,6 +27,12 @@ CATEGORIES = {
                               "a safety / alarm / shed signal is dropped", "Proxy refuses to drop safety signals"),
     "replay_delay":          ("Replay / delay a command", "T0857 Point & Tag Modification",
                               "a stale value is re-applied or held past validity", "Residual monitor (model vs reported)"),
+    "drift_sensor":          ("Drift a sensor reading", "T0856 Spoof Reporting Message",
+                              "a reading slides away from reality too slowly for any one frame to look wrong", "Sensor-fusion cross-check"),
+    "replay_reading":        ("Replay a stale reading", "T0857 Replay / T0856 Spoof Reporting",
+                              "the last good reading is replayed while the real process keeps moving", "Sensor-fusion cross-check"),
+    "synthesize_sensor":     ("Synthesize false sensor data", "T0856 Spoof Reporting (model-aware)",
+                              "a fabricated curve with real dynamics hides an absolute offset", "Physics-aware monitor (model vs reported)"),
 }
 
 

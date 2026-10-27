@@ -30,7 +30,7 @@ Simulation only.
 | # | Attack | MITRE ATT&CK for ICS | Undefended | First flagged | Proxy on |
 |---|---|---|---|---|---|
 | 01 | Forced overcurrent + temperature spoof | T0836 + T0856 | pack 57.7 °C | at onset (physics monitor) | 43.2 °C |
-| 02 | Thermal-sensor drift | T0856 | pack 49.5 °C | +2 s (sensor fusion) | 43.2 °C |
+| 02 | Thermal-sensor drift | T0856 | pack 51.0 °C | +2 s (sensor fusion) | 43.2 °C |
 | 03 | Sensor replay / stale freeze | T0857 / T0856 | pack 52.6 °C | +2 s (sensor fusion) | 43.2 °C |
 | 04 | False-data synthesis | T0856 (model-aware) | pack 54.2 °C | at onset (physics monitor) | 43.2 °C |
 | 05 | Mass max-power broadcast | T0831 | transformer 174 %, bus −8.7 % | — | 104 % |

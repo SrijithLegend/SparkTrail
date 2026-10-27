@@ -17,29 +17,25 @@ import json
 from pathlib import Path
 
 from sparktrail.core import scenario
+from sparktrail.domains.ev_hub import SESSION_ATTACKS as EV, ATTACK_START_S as START, MASS_CFG as HUB, session_config
 
 OUT = Path(__file__).parent / "sparktrail-experience" / "public" / "trace" / "attacks"
-SESSION = "scenarios/dcfast_overcurrent_tempspoof.yaml"   # DC-fast charger, one pack
-HUB = "scenarios/hub_mass_command.yaml"                   # 12-charger hub on one transformer
 PACK_LIMIT_C = 50.0                                        # BMS derate threshold
-START = 60                                                 # attack onset in the session runs
 
-# id, title, MITRE ATT&CK for ICS tag, forced current, sensor-side attack, copy (engine numbers are appended)
+# site id, EV-hub scenario (current + sensor attack come from there, shared with the simulator),
+# title, MITRE ATT&CK for ICS tag, copy (engine numbers are appended)
 SESSION_ATTACKS = [
-    ("overcurrent", "Forced overcurrent + temperature spoof", "T0836 Modify Parameter + T0856 Spoof Reporting",
-     250, dict(mechanism="sensor_spoof", hold_value=30),
+    ("overcurrent", "overcurrent_tempspoof", "Forced overcurrent + temperature spoof",
+     "T0836 Modify Parameter + T0856 Spoof Reporting",
      "The charge current is forced to 250 A while the temperature sensor is pinned to a safe-looking 30 °C, "
      "so the BMS never derates and the pack cooks."),
-    ("temp_drift", "Thermal-sensor drift", "T0856 Spoof Reporting Message",
-     200, dict(mechanism="sensor_drift", rate_per_s=0.01),
+    ("temp_drift", "temp_drift", "Thermal-sensor drift", "T0856 Spoof Reporting Message",
      "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap "
      "from reality keeps widening while current is pushed up."),
-    ("replay", "Sensor replay / stale freeze", "T0857 Replay / T0856 Spoof Reporting",
-     220, dict(mechanism="replay"),
+    ("replay", "sensor_replay", "Sensor replay / stale freeze", "T0857 Replay / T0856 Spoof Reporting",
      "The last good telemetry frame is replayed forever, so the gauge freezes while real current keeps heating "
      "the pack behind it."),
-    ("synthesis", "False-data synthesis", "T0856 Spoof Reporting (model-aware)",
-     230, dict(mechanism="sensor_offset", offset_C=15),
+    ("synthesis", "false_data_synthesis", "False-data synthesis", "T0856 Spoof Reporting (model-aware)",
      "A fabricated temperature curve that rises exactly as Joule heating predicts, just 15 °C below reality — "
      "built to pass rate checks, so the absolute physics model has to catch it."),
 ]
@@ -53,14 +49,10 @@ def _ev(i, t, layer, source, kind, detail):
     return {"id": i, "t": t, "layer": layer, "source": source, "kind": kind, "detail": detail}
 
 
-def session_attack(aid, title, mitre, amps, sensor, desc):
-    cfg = copy.deepcopy(scenario.load(SESSION))
+def session_attack(aid, ev_key, title, mitre, desc):
+    amps, sensor = EV[ev_key]
+    cfg = session_config(ev_key)
     cfg["name"] = title
-    cfg["attacks"] = [
-        dict(id="A-INJ", entry_point="cyber.backend_link", mechanism="command_override",
-             field="charging_profile.limit_A", to=amps, start_s=START),
-        dict(id="A-SENS", entry_point="cyber.sensor_bus", field="sensor.pack_temp_C", start_s=START, **sensor),
-    ]
     run = scenario.run(cfg)
     s, ev = run["score"], run["events"]
     defended = copy.deepcopy(cfg); defended["proxy"] = True

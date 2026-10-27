@@ -4,21 +4,21 @@
   "title": "Thermal-sensor drift",
   "mitre": "T0856 Spoof Reporting Message",
   "kind": "session",
-  "description": "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap from reality keeps widening while current is pushed up. Real peak 49.5 °C; with the proxy on, 43.2 °C.",
-  "peak_real_temp": 49.5,
+  "description": "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap from reality keeps widening while current is pushed up. Real peak 51.0 °C; with the proxy on, 43.2 °C.",
+  "peak_real_temp": 51.0,
   "defended_peak_temp": 43.2,
-  "commanded_a": 200.0,
+  "commanded_a": 210.0,
   "caught_by": "sensor fusion",
   "caught_at_s": 2,
-  "physics_monitor_at_s": 263,
+  "physics_monitor_at_s": 260,
   "metrics": [
    {
-    "v": "49.5°C",
+    "v": "51.0°C",
     "l": "real pack temp",
     "tone": "hot"
    },
    {
-    "v": "200A",
+    "v": "210A",
     "l": "forced current",
     "tone": ""
    },
@@ -46,7 +46,7 @@
    "source": "ATTACKER",
    "kind": "attack.inject",
    "detail": {
-    "forced_a": 200,
+    "forced_a": 210,
     "sensor": "sensor_drift"
    }
   },
@@ -57,7 +57,7 @@
    "source": "CSMS",
    "kind": "ocpp.SetChargingProfile",
    "detail": {
-    "limit_a": 200
+    "limit_a": 210
    }
   },
   {
@@ -67,7 +67,7 @@
    "source": "CP_1",
    "kind": "charger.apply_limit",
    "detail": {
-    "current_a": 200
+    "current_a": 210
    }
   },
   {
@@ -88,11 +88,21 @@
   },
   {
    "id": 7,
-   "t": 323.0,
+   "t": 320.0,
    "layer": "monitor",
    "source": "MONITOR",
    "kind": "monitor.alarm",
    "detail": {}
+  },
+  {
+   "id": 5,
+   "t": 2178.0,
+   "layer": "physics",
+   "source": "PACK",
+   "kind": "pack.over_limit",
+   "detail": {
+    "temp_c": 50.0
+   }
   }
  ]
 }

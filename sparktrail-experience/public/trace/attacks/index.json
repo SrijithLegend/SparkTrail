@@ -35,21 +35,21 @@
    "title": "Thermal-sensor drift",
    "mitre": "T0856 Spoof Reporting Message",
    "kind": "session",
-   "description": "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap from reality keeps widening while current is pushed up. Real peak 49.5 °C; with the proxy on, 43.2 °C.",
-   "peak_real_temp": 49.5,
+   "description": "The reported temperature slides 0.01 °C lower every second — no single reading looks wrong, but the gap from reality keeps widening while current is pushed up. Real peak 51.0 °C; with the proxy on, 43.2 °C.",
+   "peak_real_temp": 51.0,
    "defended_peak_temp": 43.2,
-   "commanded_a": 200.0,
+   "commanded_a": 210.0,
    "caught_by": "sensor fusion",
    "caught_at_s": 2,
-   "physics_monitor_at_s": 263,
+   "physics_monitor_at_s": 260,
    "metrics": [
     {
-     "v": "49.5°C",
+     "v": "51.0°C",
      "l": "real pack temp",
      "tone": "hot"
     },
     {
-     "v": "200A",
+     "v": "210A",
      "l": "forced current",
      "tone": ""
     },
