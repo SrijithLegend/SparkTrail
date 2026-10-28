@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ SparkTrail
+# SparkTrail
 
 **See how a single bad number on a network wire turns into heat, overload and blackouts.**
 
@@ -12,13 +12,13 @@ infrastructure all the way to its *physical* consequences, then replays the path
 ![Three.js](https://img.shields.io/badge/Three.js-3D-049EF4?logo=threedotjs&logoColor=white)
 ![Simulation only](https://img.shields.io/badge/scope-simulation%20only-2ea44f)
 
-[Quick start](#-quick-start) · [What you'll see](#-what-youll-see) · [How it works](#-how-it-works) · [Scenarios](#-scenarios) · [Project layout](#-project-layout) · [Limits](#-honest-limits)
+[Quick start](#quick-start) · [What you'll see](#what-youll-see) · [How it works](#how-it-works) · [Scenarios](#scenarios) · [Project layout](#project-layout) · [Limits](#honest-limits)
 
 </div>
 
 ---
 
-## 🧭 What is this?
+## What is this?
 
 Modern EV chargers and microgrids are **cyber-physical systems**: software decides how much
 current flows, and physics decides what happens next. If a sensor reports the wrong temperature,
@@ -45,7 +45,7 @@ It does that by:
 
 ---
 
-## 🚀 Quick start
+## Quick start
 
 You need **Python 3.10+**. Node.js 20+ is only needed for the web experience.
 
@@ -90,15 +90,15 @@ Both should end with `all passed`.
 
 | I want to… | Run this | Then open |
 |---|---|---|
-| 🖥️ **Click around a red-team console** | `pip install -r requirements-app.txt`<br>`streamlit run app.py` | the URL Streamlit prints |
-| 🌐 **Watch the scroll story and live graph** | `cd sparktrail-experience`<br>`npm install && npm run dev` | http://localhost:3000 |
-| 🧊 **Fly around the 3D tracer** | `python -m sparktrail.viz`<br>`cd viz3d && python -m http.server` | http://localhost:8000 |
-| 🏭 **Try other industries** (water, HVAC, …) | `python -m sparktrail.domains`<br>`cd viz3d && python -m http.server` | http://localhost:8000/multidomain.html |
-| 📄 **Read the landing page** | `python -m http.server` (from repo root) | http://localhost:8000/landing/ |
+| **Click around a red-team console** | `pip install -r requirements-app.txt`<br>`streamlit run app.py` | the URL Streamlit prints |
+| **Watch the scroll story and live graph** | `cd sparktrail-experience`<br>`npm install && npm run dev` | http://localhost:3000 |
+| **Fly around the 3D tracer** | `python -m sparktrail.viz`<br>`cd viz3d && python -m http.server` | http://localhost:8000 |
+| **Try other industries** (water, HVAC, …) | `python -m sparktrail.domains`<br>`cd viz3d && python -m http.server` | http://localhost:8000/multidomain.html |
+| **Read the landing page** | `python -m http.server` (from repo root) | http://localhost:8000/landing/ |
 
 ---
 
-## 👀 What you'll see
+## What you'll see
 
 ### The 3D tracer (`viz3d/`)
 Pick a **TARGET** (a charger or microgrid type), then an **ATTACK**. Watch pulses travel along links
@@ -120,7 +120,7 @@ an attack selector, a live propagation graph and a simulator for five EV attacks
 
 ---
 
-## 🧠 How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -143,7 +143,7 @@ flowchart LR
 | **Monitor** | `monitor/physics_aware.py` | Runs a *different* physics model from the plant, so it can't cheat. Only alerts, never blocks. |
 | **Scoring** | `scoring/impact.py` | Ranks a scenario by peak temp, load, voltage and frequency excursion, speed and nodes reached. |
 
-### 🛡️ The four defences
+### The four defences
 
 1. **Zero-Trust Physics Proxy** (`control/proxy.py`). Refuses commands that are *authorised but
    physically dangerous*, and clamps them back to safe limits. Turn it on with `proxy: true` in a
@@ -159,7 +159,7 @@ flowchart LR
 
 ---
 
-## 🧪 Scenarios
+## Scenarios
 
 Each scenario is a small, readable YAML file in [`scenarios/`](scenarios/). Copy one and tweak it to
 make your own.
@@ -220,7 +220,7 @@ nodes and links, a few consequence metrics and some abstract-injection scenarios
 
 ---
 
-## 📁 Project layout
+## Project layout
 
 ```text
 SparkTrail/
@@ -247,7 +247,7 @@ SparkTrail/
 
 ---
 
-## 📖 Glossary for newcomers
+## Glossary for newcomers
 
 | Term | Meaning |
 |---|---|
@@ -262,7 +262,7 @@ SparkTrail/
 
 ---
 
-## ⚖️ Honest limits
+## Honest limits
 
 SparkTrail aims to be **directionally right, not engineering-accurate**. Every physical number in
 the UI is flagged as either `modelled` (from a real model) or `illustrative` (hand-set).
@@ -282,5 +282,5 @@ the UI is flagged as either `modelled` (from a real model) or `illustrative` (ha
 ---
 
 <div align="center">
-<sub>Built to understand cyber-physical risk, not to create it. ⚡</sub>
+<sub>Built to understand cyber-physical risk, not to create it.</sub>
 </div>
